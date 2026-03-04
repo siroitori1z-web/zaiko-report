@@ -120,6 +120,8 @@
 
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxu8GIUU1F68aWGtHsZ9J64rDZd3CcX99YbkyQ2WQLbeYDUBTkRX154UbEkYlEB3rsFog/exec";
+
+        // 商品リスト（すべてスペースなしで統一）
         const stores = [{ "店舗名": "ドン・キホーテ松原店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロンチョコ", "アルプロンクッキー", "VALXチョコ", "VALXベリー", "グロングチョコ", "グロングヨーグルト", "ザバスココア", "ザバスストロベリー", "ザバスリッチショコラ", "ザバスバナナ", "ザバスキャラメル", "ザバスヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテりんくう店", "商品リスト": ["VALXチョコ", "アルプロチョコ", "グロングチョコ", "VALXピーチ", "アルプロストロベリー", "ウルトラココナッツ", "マイプロココア", "マイプロ抹茶", "マイプロレモン", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ京都伏見店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロンチョコ", "アルプロンイチゴ", "VALXチョコ", "VALXピーチ", "ホエイチョコ", "ホエイヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ西大和店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー", "VALXチョコ", "VALXピーチ", "ウルトラココナッツ", "ウルトラクッキー", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ箕面店", "商品リスト": ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ茨木店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー＆クリーム", "バルクスチョコ", "バルクスベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ枚方店", "商品リスト": ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "ウルトラココナッツ", "ウルトラパイン", "コップ小", "ウエットティッシュ"] }];
 
         let cloudData = {};
@@ -136,6 +138,7 @@
                 const res = await fetch(GAS_URL);
                 const json = await res.json();
                 cloudData = {};
+                // スプレッドシートから来たデータの名前のスペースを全部消して保存
                 for (let store in json) {
                     cloudData[store] = {};
                     for (let item in json[store]) {
@@ -154,7 +157,8 @@
             const savedData = cloudData[storeName] || {};
 
             store.商品リスト.forEach(item => {
-                const val = savedData[item] ?? 0;
+                // アプリ側も「スペースなしの名前」で数字を検索
+                const val = savedData[item.replace(/\s+/g, "")] ?? 0;
                 const row = document.createElement('div');
                 row.className = 'item-row';
                 row.innerHTML = `
@@ -174,14 +178,15 @@
             if (!storeSelect.value) return alert("店舗を選択してください");
             const data = {};
             document.querySelectorAll('.curr').forEach(el => {
-                data[el.dataset.item] = el.value;
+                // 送信時もスペースを消した名前で送信
+                data[el.dataset.item.replace(/\s+/g, "")] = el.value;
             });
             const btn = document.getElementById('saveBtn');
             btn.textContent = "保存中...";
             try {
                 await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ storeName: storeSelect.value, data }) });
                 alert("保存完了！");
-                // ★ ここで loadCloudData() を呼ばないことで、画面上の数字が変わるのを防ぎます
+                // ※ ここで再読み込みしないことで、報告文作成まで「前/後」の差を維持
             } catch (e) { alert("保存失敗"); }
             btn.textContent = "スプレッドシートに保存";
         };
