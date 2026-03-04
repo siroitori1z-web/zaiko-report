@@ -120,8 +120,6 @@
 
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxu8GIUU1F68aWGtHsZ9J64rDZd3CcX99YbkyQ2WQLbeYDUBTkRX154UbEkYlEB3rsFog/exec";
-
-        // 商品リストのスペースをすべて削除して定義（スプレッドシートとの不一致を防ぐ）
         const stores = [{ "店舗名": "ドン・キホーテ松原店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロンチョコ", "アルプロンクッキー", "VALXチョコ", "VALXベリー", "グロングチョコ", "グロングヨーグルト", "ザバスココア", "ザバスストロベリー", "ザバスリッチショコラ", "ザバスバナナ", "ザバスキャラメル", "ザバスヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテりんくう店", "商品リスト": ["VALXチョコ", "アルプロチョコ", "グロングチョコ", "VALXピーチ", "アルプロストロベリー", "ウルトラココナッツ", "マイプロココア", "マイプロ抹茶", "マイプロレモン", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ京都伏見店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロンチョコ", "アルプロンイチゴ", "VALXチョコ", "VALXピーチ", "ホエイチョコ", "ホエイヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ西大和店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー", "VALXチョコ", "VALXピーチ", "ウルトラココナッツ", "ウルトラクッキー", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ箕面店", "商品リスト": ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ茨木店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー＆クリーム", "バルクスチョコ", "バルクスベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ枚方店", "商品リスト": ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "ウルトラココナッツ", "ウルトラパイン", "コップ小", "ウエットティッシュ"] }];
 
         let cloudData = {};
@@ -137,7 +135,6 @@
             try {
                 const res = await fetch(GAS_URL);
                 const json = await res.json();
-                // 読み込み時も名前のスペースを無視して格納
                 cloudData = {};
                 for (let store in json) {
                     cloudData[store] = {};
@@ -153,7 +150,6 @@
             const fieldsDiv = document.getElementById('inventoryFields');
             const store = stores.find(s => s.店舗名 === storeName);
             if (!store) return fieldsDiv.innerHTML = "";
-
             fieldsDiv.innerHTML = "";
             const savedData = cloudData[storeName] || {};
 
@@ -183,10 +179,9 @@
             const btn = document.getElementById('saveBtn');
             btn.textContent = "保存中...";
             try {
-                // 保存時に名前の不一致を完全に防ぐ設定で送信
                 await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ storeName: storeSelect.value, data }) });
                 alert("保存完了！");
-                await loadCloudData();
+                // ★ ここで loadCloudData() を呼ばないことで、画面上の数字が変わるのを防ぎます
             } catch (e) { alert("保存失敗"); }
             btn.textContent = "スプレッドシートに保存";
         };
