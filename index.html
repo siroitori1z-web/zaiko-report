@@ -120,11 +120,12 @@
 
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxu8GIUU1F68aWGtHsZ9J64rDZd3CcX99YbkyQ2WQLbeYDUBTkRX154UbEkYlEB3rsFog/exec";
-        const stores = [{ "店舗名": "ドン・キホーテ松原店", "商品リスト": ["マイプロ ココア", "マイプロレモン", "アルプロンチョコ", "アルプロンクッキー", "VALXチョコ", "VALXベリー", "グロングチョコ", "グロングヨーグルト", "ザバスココア", "ザバスストロベリー", "ザバスリッチショコラ", "ザバスバナナ", "ザバスキャラメル", "ザバスヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテりんくう店", "商品リスト": ["VALXチョコ", "アルプロチョコ", "グロングチョコ", "VALXピーチ", "アルプロストロベリー", "ウルトラココナッツ", "マイプロココア", "マイプロ抹茶", "マイプロレモン", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ京都伏見店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロンチョコ", "アルプロンイチゴ", "VALXチョコ", "VALXピーチ", "ホエイチョコ", "ホエイヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ西大和店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー", "VALXチョコ", "VALXピーチ", "ウルトラココナッツ", "ウルトラクッキー", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ箕面店", "商品リスト": ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ茨木店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー＆クリーム", "バルクスチョコ", "バルクスベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ枚方店", "商品リスト": ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "ウルトラココナッツ", "ウルトラパイン", "コップ小", "ウエットティッシュ"] }];
+
+        // マイプロ ココアのスペースを消してスプレッドシートと統一
+        const stores = [{ "店舗名": "ドン・キホーテ松原店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロンチョコ", "アルプロンクッキー", "VALXチョコ", "VALXベリー", "グロングチョコ", "グロングヨーグルト", "ザバスココア", "ザバスストロベリー", "ザバスリッチショコラ", "ザバスバナナ", "ザバスキャラメル", "ザバスヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテりんくう店", "商品リスト": ["VALXチョコ", "アルプロチョコ", "グロングチョコ", "VALXピーチ", "アルプロストロベリー", "ウルトラココナッツ", "マイプロココア", "マイプロ抹茶", "マイプロレモン", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ京都伏見店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロンチョコ", "アルプロンイチゴ", "VALXチョコ", "VALXピーチ", "ホエイチョコ", "ホエイヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ西大和店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー", "VALXチョコ", "VALXピーチ", "ウルトラココナッツ", "ウルトラクッキー", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ箕面店", "商品リスト": ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ茨木店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー＆クリーム", "バルクスチョコ", "バルクスベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ枚方店", "商品リスト": ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "ウルトラココナッツ", "ウルトラパイン", "コップ小", "ウエットティッシュ"] }];
 
         let cloudData = {};
 
-        // 初期化：店舗リスト作成
         const storeSelect = document.getElementById('storeSelect');
         stores.forEach(s => {
             const opt = document.createElement('option');
@@ -132,7 +133,6 @@
             storeSelect.appendChild(opt);
         });
 
-        // クラウドデータ取得
         async function loadCloudData() {
             try {
                 const res = await fetch(GAS_URL);
@@ -141,7 +141,6 @@
             } catch (e) { console.error(e); }
         }
 
-        // 入力フィールド描画
         function renderFields(storeName) {
             const fieldsDiv = document.getElementById('inventoryFields');
             const store = stores.find(s => s.店舗名 === storeName);
@@ -151,7 +150,10 @@
             const savedData = cloudData[storeName] || {};
 
             store.商品リスト.forEach(item => {
-                const val = savedData[item] ?? 0;
+                // スペースの有無に関わらず一致させるための処理
+                const key = item.replace(/\s+/g, "");
+                const val = savedData[key] ?? 0;
+
                 const row = document.createElement('div');
                 row.className = 'item-row';
                 row.innerHTML = `
@@ -167,27 +169,29 @@
 
         storeSelect.onchange = () => renderFields(storeSelect.value);
 
-        // 保存
         document.getElementById('saveBtn').onclick = async () => {
             if (!storeSelect.value) return alert("店舗を選択してください");
             const data = {};
-            document.querySelectorAll('.curr').forEach(el => { data[el.dataset.item] = el.value; });
+            document.querySelectorAll('.curr').forEach(el => {
+                // 送信時もスペースを詰めてスプレッドシートと一致させる
+                const key = el.dataset.item.replace(/\s+/g, "");
+                data[key] = el.value;
+            });
             const btn = document.getElementById('saveBtn');
             btn.textContent = "保存中...";
             try {
                 await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ storeName: storeSelect.value, data }) });
                 alert("保存完了！");
-                loadCloudData();
+                await loadCloudData();
             } catch (e) { alert("保存失敗"); }
             btn.textContent = "スプレッドシートに保存";
         };
 
-        // 報告文
         document.getElementById('reportBtn').onclick = () => {
             const storeName = storeSelect.value;
             if (!storeName) return;
             const now = new Date();
-            const dateStr = `${now.getMonth() + 1}/${now.getDate()}（${["日", "月", "火", "水", "木", "金", "土"][now.getDay()]}曜）`;
+            const dateStr = `${now.getMonth() + 1}/${now.getDate()}（${["日", "月", "火", "水", "木", "金", "土"][now.getDay()]}）`;
             const gigaUrl = document.getElementById('gigafileUrl').value;
 
             let text = `${dateStr} ${storeName}\n\n`;
@@ -207,7 +211,6 @@
             document.getElementById('output').textContent = text;
         };
 
-        // Gmail
         document.getElementById('gmailBtn').onclick = () => {
             const text = document.getElementById('output').textContent;
             if (!text) return alert("先に報告文を作成してください");
