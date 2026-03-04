@@ -1,6 +1,6 @@
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxu8GIUU1F68aWGtHsZ9J64rDZd3CcX99YbkyQ2WQLbeYDUBTkRX154UbEkYlEB3rsFog/exec";
 
-const stores = [{ "店舗名": "ドン・キホーテ松原店", "商品リスト": ["マイプロ ココア", "マイプロレモン", "アルプロンチョコ", "アルプロンクッキー", "VALXチョコ", "VALXベリー", "グロングチョコ", "グロングヨーグルト", "ザバスココア", "ザバスストロベリー", "ザバスリッチショコラ", "ザバスバナナ", "ザバスキャラメル", "ザバスヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテりんくう店", "商品リスト": ["VALXチョコ", "アルプロチョコ", "グロングチョコ", "VALXピーチ", "アルプロストロベリー", "ウルトラココナッツ", "マイプロココア", "マイプロ抹茶", "マイプロレモン", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ京都伏見店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロンチョコ", "アルプロンイチゴ", "VALXチョコ", "VALXピーチ", "ホエイチョコ", "ホエイヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ西大和店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー", "VALXチョコ", "VALXピーチ", "ウルトラココナッツ", "ウルトラクッキー", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ箕面店", "商品リスト": ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ茨木店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー＆クリーム", "バルクスチョコ", "バルクスベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ枚方店", "商品リスト": ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "ウルトラココナッツ", "ウルトラパイン", "コップ小", "ウエットティッシュ"] }];
+const stores = [{"店舗名":"ドン・キホーテ松原店","商品リスト":["マイプロ ココア","マイプロレモン","アルプロンチョコ","アルプロンクッキー","VALXチョコ","VALXベリー","グロングチョコ","グロングヨーグルト","ザバスココア","ザバスストロベリー","ザバスリッチショコラ","ザバスバナナ","ザバスキャラメル","ザバスヨーグルト","コップ小","ウエットティッシュ"]},{"店舗名":"ドン・キホーテりんくう店","商品リスト":["VALXチョコ","アルプロチョコ","グロングチョコ","VALXピーチ","アルプロストロベリー","ウルトラココナッツ","マイプロココア","マイプロ抹茶","マイプロレモン","コップ小","ウエットティッシュ"]},{"店舗名":"ドン・キホーテ京都伏見店","商品リスト":["マイプロココア","マイプロレモン","アルプロンチョコ","アルプロンイチゴ","VALXチョコ","VALXピーチ","ホエイチョコ","ホエイヨーグルト","コップ小","ウエットティッシュ"]},{"店舗名":"ドン・キホーテ西大和店","商品リスト":["マイプロココア","マイプロレモン","アルプロチョコ","アルプロクッキー","VALXチョコ","VALXピーチ","ウルトラココナッツ","ウルトラクッキー","コップ小","ウエットティッシュ"]},{"店舗名":"ドン・キホーテ箕面店","商品リスト":["マイプロココア","マイプロレモン","バルクスチョコ","バルクスピーチ","ザバスココア","ザバスストロベリー","グロングチョコ","グロングヨーグルト","コップ小","ウエットティッシュ"]},{"店舗名":"ドン・キホーテ茨木店","商品リスト":["マイプロココア","マイプロレモン","アルプロチョコ","アルプロクッキー＆クリーム","バルクスチョコ","バルクスベリー","グロングチョコ","グロングヨーグルト","コップ小","ウエットティッシュ"]},{"店舗名":"ドン・キホーテ枚方店","商品リスト":["マイプロココア","マイプロレモン","バルクスチョコ","バルクスピーチ","ザバスココア","ザバスストロベリー","ウルトラココナッツ","ウルトラパイン","コップ小","ウエットティッシュ"]}];
 
 window.onload = () => {
     const storeSelect = document.getElementById('storeSelect');
@@ -14,17 +14,34 @@ window.onload = () => {
         storeSelect.appendChild(opt);
     });
 
-    // スプレッドシートから最新データを取得
-    let cloudData = {};
-    fetch(GAS_URL).then(res => res.json()).then(json => { cloudData = json; });
+    let cloudData = null;
 
-    storeSelect.onchange = () => {
+    // クラウドから最新データを取ってくる関数
+    async function loadCloudData() {
+        try {
+            const res = await fetch(GAS_URL);
+            cloudData = await res.json();
+        } catch (e) {
+            console.error("読み込み失敗", e);
+            cloudData = {};
+        }
+    }
+
+    // アプリ起動時にまず読み込み開始
+    loadCloudData();
+
+    storeSelect.onchange = async () => {
         const storeName = storeSelect.value;
         const store = stores.find(s => s.店舗名 === storeName);
-        fieldsDiv.innerHTML = '';
+        fieldsDiv.innerHTML = 'データ読み込み中...'; 
         if (!store) return;
 
-        // クラウドデータがあればそれを使う（なければ0）
+        // まだ読み込みが終わってなければ少し待つ
+        if (cloudData === null) {
+            await loadCloudData();
+        }
+
+        fieldsDiv.innerHTML = '';
         const savedData = cloudData[storeName] || {};
 
         store.商品リスト.forEach(item => {
@@ -40,92 +57,6 @@ window.onload = () => {
         });
     };
 
-    // ギガファイル便エリア
-    const gigaContainer = document.createElement('div');
-    gigaContainer.style.margin = '20px 0';
-    gigaContainer.style.padding = '15px';
-    gigaContainer.style.backgroundColor = '#f0f0f0';
-    gigaContainer.style.borderRadius = '8px';
-    const openGigaBtn = document.createElement('button');
-    openGigaBtn.textContent = '📸 ギガファイル便を開く';
-    openGigaBtn.style.backgroundColor = '#0056b3';
-    openGigaBtn.style.marginBottom = '10px';
-    openGigaBtn.onclick = () => window.open('https://gigafile.nu/', '_blank');
-    const urlInput = document.createElement('input');
-    urlInput.type = 'text';
-    urlInput.id = 'gigafileUrl';
-    urlInput.placeholder = 'ギガファイル便のURLを貼り付け';
-    urlInput.style.width = '100%';
-    urlInput.style.padding = '10px';
-    urlInput.style.boxSizing = 'border-box';
-    gigaContainer.appendChild(openGigaBtn);
-    gigaContainer.appendChild(urlInput);
-    const saveBtn = document.getElementById('saveBtn');
-    saveBtn.parentNode.insertBefore(gigaContainer, saveBtn);
-
-    // 保存ボタン：スプレッドシートに送信
-    saveBtn.onclick = () => {
-        const storeName = storeSelect.value;
-        if (!storeName) return alert('店舗を選んでください');
-        const data = {};
-        document.querySelectorAll('.curr').forEach(el => {
-            data[el.dataset.item] = el.value;
-        });
-
-        saveBtn.textContent = "保存中...";
-        saveBtn.disabled = true;
-
-        fetch(GAS_URL, {
-            method: "POST",
-            body: JSON.stringify({ storeName: storeName, data: data })
-        }).then(() => {
-            alert('スプレッドシートに保存しました！');
-            saveBtn.textContent = "補充後の在庫を保存";
-            saveBtn.disabled = false;
-            // ローカルのデータも更新
-            cloudData[storeName] = data;
-        });
-    };
-
-    document.getElementById('reportBtn').onclick = () => {
-        const storeName = storeSelect.value;
-        if (!storeName) return alert('店舗を選んでください');
-        const now = new Date();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const date = String(now.getDate()).padStart(2, '0');
-        const dayOfWeek = ["日曜", "月曜", "火曜", "水曜", "木曜", "金曜", "土曜"][now.getDay()];
-        const dateStr = `${month}/${date}（${dayOfWeek}）`;
-        const gigaUrl = document.getElementById('gigafileUrl').value;
-        let text = `${dateStr} ${storeName}\n\n`;
-        if (gigaUrl) text += `■自販機写真（ギガファイル便）\n${gigaUrl}\n\n`;
-        const itemRows = document.querySelectorAll('.item-row');
-        text += `[補充前]\n`;
-        itemRows.forEach((row, index) => {
-            const name = row.querySelector('strong').textContent;
-            const p = row.querySelector('.prev').value || 0;
-            text += `${name} ${p}\n`;
-            if (itemRows[index + 1] && itemRows[index + 1].querySelector('strong').textContent === "コップ小") text += `\n`;
-        });
-        text += `\n\n[補充後]\n`;
-        itemRows.forEach((row, index) => {
-            const name = row.querySelector('strong').textContent;
-            const c = row.querySelector('.curr').value || 0;
-            text += `${name} ${c}\n`;
-            if (itemRows[index + 1] && itemRows[index + 1].querySelector('strong').textContent === "コップ小") text += `\n`;
-        });
-        output.textContent = text;
-    };
-
-    const gmailBtn = document.createElement('button');
-    gmailBtn.textContent = 'Gmailで報告（下書き作成）';
-    gmailBtn.style.backgroundColor = '#ea4335';
-    document.body.insertBefore(gmailBtn, output);
-    gmailBtn.onclick = () => {
-        const reportText = output.textContent;
-        if (!reportText) return alert('先に「報告文を作成」を押してください');
-        const to = "siroitori1z@gmail.com"; // ★ここをご自身の宛先に書き換え
-        const subject = encodeURIComponent(`${storeSelect.value} 在庫報告`);
-        const body = encodeURIComponent(reportText);
-        window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
-    };
-};
+    // --- ギガファイル便・ボタン・報告作成などの処理は変更なし ---
+    // (中略) ここから下は前回お送りしたコードのsaveBtn以降と同じ内容を貼り付けてください
+    // ★宛先メールアドレスの書き換えもお忘れなく！
