@@ -3,22 +3,219 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>在庫報告アプリ</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在庫報告ツール</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+            color: #333;
+            max-width: 600px;
+            margin: auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #0056b3;
+        }
+
+        select,
+        input,
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+            border: none;
+        }
+
+        #saveBtn {
+            background-color: #1a73e8;
+            color: white;
+            margin-top: 20px;
+        }
+
+        #reportBtn {
+            background-color: #34a853;
+            color: white;
+        }
+
+        .gmail-btn {
+            background-color: #ea4335;
+            color: white;
+        }
+
+        .item-row {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .item-row strong {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9em;
+        }
+
+        .input-group input {
+            width: 80px;
+        }
+
+        pre {
+            background: #eee;
+            padding: 15px;
+            white-space: pre-wrap;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .giga-section {
+            background: #e8f0fe;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
 </head>
 
 <body>
+
     <h1>在庫報告ツール</h1>
+
     <select id="storeSelect">
         <option value="">店舗を選択してください</option>
     </select>
+
     <div id="inventoryFields"></div>
-    <div style="margin-top: 20px;">
-        <button id="saveBtn">補充データを保存</button>
-        <button id="reportBtn">報告文を作成</button>
+
+    <div class="giga-section">
+        <button onclick="window.open('https://gigafile.nu/')">📸 ギガファイル便を開く</button>
+        <input type="text" id="gigafileUrl" placeholder="ギガファイル便のURLを貼り付け">
     </div>
-    <div id="output" style="margin-top: 20px; white-space: pre-wrap; background: #eee; padding: 10px;"></div>
-    <script src="app.js"></script>
+
+    <button id="saveBtn">スプレッドシートに保存</button>
+    <button id="reportBtn">報告文を作成</button>
+    <button id="gmailBtn" class="gmail-btn">Gmailで報告（下書き）</button>
+
+    <pre id="output"></pre>
+
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxu8GIUU1F68aWGtHsZ9J64rDZd3CcX99YbkyQ2WQLbeYDUBTkRX154UbEkYlEB3rsFog/exec";
+        const stores = [{ "店舗名": "ドン・キホーテ松原店", "商品リスト": ["マイプロ ココア", "マイプロレモン", "アルプロンチョコ", "アルプロンクッキー", "VALXチョコ", "VALXベリー", "グロングチョコ", "グロングヨーグルト", "ザバスココア", "ザバスストロベリー", "ザバスリッチショコラ", "ザバスバナナ", "ザバスキャラメル", "ザバスヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテりんくう店", "商品リスト": ["VALXチョコ", "アルプロチョコ", "グロングチョコ", "VALXピーチ", "アルプロストロベリー", "ウルトラココナッツ", "マイプロココア", "マイプロ抹茶", "マイプロレモン", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ京都伏見店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロンチョコ", "アルプロンイチゴ", "VALXチョコ", "VALXピーチ", "ホエイチョコ", "ホエイヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ西大和店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー", "VALXチョコ", "VALXピーチ", "ウルトラココナッツ", "ウルトラクッキー", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ箕面店", "商品リスト": ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ茨木店", "商品リスト": ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー＆クリーム", "バルクスチョコ", "バルクスベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] }, { "店舗名": "ドン・キホーテ枚方店", "商品リスト": ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "ウルトラココナッツ", "ウルトラパイン", "コップ小", "ウエットティッシュ"] }];
+
+        let cloudData = {};
+
+        // 初期化：店舗リスト作成
+        const storeSelect = document.getElementById('storeSelect');
+        stores.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.店舗名; opt.textContent = s.店舗名;
+            storeSelect.appendChild(opt);
+        });
+
+        // クラウドデータ取得
+        async function loadCloudData() {
+            try {
+                const res = await fetch(GAS_URL);
+                cloudData = await res.json();
+                if (storeSelect.value) renderFields(storeSelect.value);
+            } catch (e) { console.error(e); }
+        }
+
+        // 入力フィールド描画
+        function renderFields(storeName) {
+            const fieldsDiv = document.getElementById('inventoryFields');
+            const store = stores.find(s => s.店舗名 === storeName);
+            if (!store) return fieldsDiv.innerHTML = "";
+
+            fieldsDiv.innerHTML = "";
+            const savedData = cloudData[storeName] || {};
+
+            store.商品リスト.forEach(item => {
+                const val = savedData[item] ?? 0;
+                const row = document.createElement('div');
+                row.className = 'item-row';
+                row.innerHTML = `
+                    <strong>${item}</strong>
+                    <div class="input-group">
+                        補充前: <input type="number" class="prev" data-item="${item}" value="${val}">
+                        補充後: <input type="number" class="curr" data-item="${item}" value="${val}">
+                    </div>
+                `;
+                fieldsDiv.appendChild(row);
+            });
+        }
+
+        storeSelect.onchange = () => renderFields(storeSelect.value);
+
+        // 保存
+        document.getElementById('saveBtn').onclick = async () => {
+            if (!storeSelect.value) return alert("店舗を選択してください");
+            const data = {};
+            document.querySelectorAll('.curr').forEach(el => { data[el.dataset.item] = el.value; });
+            const btn = document.getElementById('saveBtn');
+            btn.textContent = "保存中...";
+            try {
+                await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ storeName: storeSelect.value, data }) });
+                alert("保存完了！");
+                loadCloudData();
+            } catch (e) { alert("保存失敗"); }
+            btn.textContent = "スプレッドシートに保存";
+        };
+
+        // 報告文
+        document.getElementById('reportBtn').onclick = () => {
+            const storeName = storeSelect.value;
+            if (!storeName) return;
+            const now = new Date();
+            const dateStr = `${now.getMonth() + 1}/${now.getDate()}（${["日", "月", "火", "水", "木", "金", "土"][now.getDay()]}曜）`;
+            const gigaUrl = document.getElementById('gigafileUrl').value;
+
+            let text = `${dateStr} ${storeName}\n\n`;
+            if (gigaUrl) text += `■自販機写真\n${gigaUrl}\n\n`;
+
+            const rows = document.querySelectorAll('.item-row');
+            text += `[補充前]\n`;
+            rows.forEach((row, i) => {
+                text += `${row.querySelector('strong').textContent} ${row.querySelector('.prev').value}\n`;
+                if (rows[i + 1] && rows[i + 1].querySelector('strong').textContent === "コップ小") text += `\n`;
+            });
+            text += `\n[補充後]\n`;
+            rows.forEach((row, i) => {
+                text += `${row.querySelector('strong').textContent} ${row.querySelector('.curr').value}\n`;
+                if (rows[i + 1] && rows[i + 1].querySelector('strong').textContent === "コップ小") text += `\n`;
+            });
+            document.getElementById('output').textContent = text;
+        };
+
+        // Gmail
+        document.getElementById('gmailBtn').onclick = () => {
+            const text = document.getElementById('output').textContent;
+            if (!text) return alert("先に報告文を作成してください");
+            window.location.href = `mailto:siroitori1z@gmail.com?subject=${encodeURIComponent(storeSelect.value + " 在庫報告")}&body=${encodeURIComponent(text)}`;
+        };
+
+        loadCloudData();
+    </script>
 </body>
 
 </html>
