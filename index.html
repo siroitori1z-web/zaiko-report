@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>在庫報告アプリ</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <h1>在庫報告ツール</h1>
+    <select id="storeSelect">
+        <option value="">店舗を選択してください</option>
+    </select>
+    <div id="inventoryFields"></div>
+    <div style="margin-top: 20px;">
+        <button id="saveBtn">補充データを保存</button>
+        <button id="reportBtn">報告文を作成</button>
+    </div>
+    <div id="output" style="margin-top: 20px; white-space: pre-wrap; background: #eee; padding: 10px;"></div>
+    <script src="app.js"></script>
+</body>
+
+</html>
