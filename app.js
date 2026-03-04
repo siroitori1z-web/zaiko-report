@@ -11,72 +11,7 @@ window.onload = async () => {
 
     let cloudData = {};
 
-    // ------------------------
-    // クラウドデータ取得（安定版）
-    // ------------------------
-    async function loadCloudData() {
-        try {
-            const res = await fetch(GAS_URL);
-            const json = await res.json();
-            cloudData = json || {};
-        } catch (err) {
-            console.error("クラウド読み込み失敗:", err);
-            cloudData = {};
-        }
-    }
-
-    // ------------------------
-    // フィールド描画
-    // ------------------------
-    function renderFields(storeName) {
-        const store = stores.find(s => s.店舗名 === storeName);
-        if (!store) return;
-
-        fieldsDiv.innerHTML = "";
-        const savedData = cloudData[storeName] || {};
-
-        store.商品リスト.forEach(item => {
-            const val = savedData[item] ?? 0;
-            const row = document.createElement('div');
-            row.className = 'item-row';
-            row.innerHTML = `
-                <strong>${item}</strong>
-                補充前: <input type="number" min="0" class="prev" data-item="${item}" value="${val}">
-                補充後: <input type="number" min="0" class="curr" data-item="${item}" value="${val}">
-            `;
-            fieldsDiv.appendChild(row);
-        });
-    }
-
-    // ------------------------
-    // 初期化処理
-    // ------------------------
-    stores.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.店舗名;
-        opt.textContent = s.店舗名;
-        storeSelect.appendChild(opt);
-    });
-
-    // アプリを開いた時に「少し待たせて」確実に取りに行く
-    fieldsDiv.innerHTML = 'スプレッドシートからデータ読み込み中...';
-    await loadCloudData();
-    
-    // 読み込みが終わったら最初の店舗を表示
-    if(storeSelect.value) {
-        renderFields(storeSelect.value);
-    } else {
-        fieldsDiv.innerHTML = '';
-    }
-
-    // 店舗変更時
-    storeSelect.onchange = () => {
-        renderFields(storeSelect.value);
-    };
-
-    // ------------------------
-    // ギガファイル便エリア（復活！）
-    // ------------------------
+    // 1. ギガファイル便エリアの復活
     const gigaContainer = document.createElement('div');
     gigaContainer.style.margin = '20px 0';
     gigaContainer.style.padding = '15px';
@@ -88,94 +23,93 @@ window.onload = async () => {
     `;
     saveBtn.parentNode.insertBefore(gigaContainer, saveBtn);
 
-    // ------------------------
-    // 保存処理（安定版）
-    // ------------------------
+    // 2. Gmailボタンの復活
+    const gmailBtn = document.createElement('button');
+    gmailBtn.id = 'gmailBtn';
+    gmailBtn.textContent = 'Gmailで報告（下書き作成）';
+    gmailBtn.style.cssText = 'background-color:#ea4335; color:white; padding:10px; border:none; border-radius:4px; cursor:pointer; margin-top:10px; width:100%;';
+    document.body.insertBefore(gmailBtn, output);
+
+    // クラウドデータ読み込み
+    async function loadCloudData() {
+        try {
+            const res = await fetch(GAS_URL);
+            cloudData = await res.json();
+        } catch (e) { cloudData = {}; }
+    }
+
+    function renderFields(storeName) {
+        const store = stores.find(s => s.店舗名 === storeName);
+        if (!store) return;
+        fieldsDiv.innerHTML = "";
+        const savedData = cloudData[storeName] || {};
+        store.商品リスト.forEach(item => {
+            const val = savedData[item] ?? 0;
+            const row = document.createElement('div');
+            row.className = 'item-row';
+            row.innerHTML = `<strong>${item}</strong> 補充前: <input type="number" class="prev" data-item="${item}" value="${val}"> 補充後: <input type="number" class="curr" data-item="${item}" value="${val}">`;
+            fieldsDiv.appendChild(row);
+        });
+    }
+
+    // 初期化
+    stores.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.店舗名; opt.textContent = s.店舗名;
+        storeSelect.appendChild(opt);
+    });
+
+    fieldsDiv.innerHTML = "スプレッドシート読み込み中...";
+    await loadCloudData();
+    fieldsDiv.innerHTML = "店舗を選択してください";
+
+    storeSelect.onchange = () => renderFields(storeSelect.value);
+
+    // 保存処理
     saveBtn.onclick = async () => {
         const storeName = storeSelect.value;
         if (!storeName) return alert("店舗を選択してください");
-
         const data = {};
-        document.querySelectorAll('.curr').forEach(el => {
-            data[el.dataset.item] = Number(el.value) || 0;
-        });
-
+        document.querySelectorAll('.curr').forEach(el => { data[el.dataset.item] = el.value; });
+        saveBtn.textContent = "保存中...";
+        saveBtn.disabled = true;
         try {
-            saveBtn.disabled = true;
-            saveBtn.textContent = "保存中...";
-
-            await fetch(GAS_URL, {
-                method: "POST",
-                body: JSON.stringify({ storeName, data })
-            });
-
-            await loadCloudData(); // 保存後に最新データを再取得
-            alert("スプレッドシートに保存しました！");
+            await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ storeName, data }) });
+            await loadCloudData();
+            alert("保存完了！");
             renderFields(storeName);
-
-        } catch (err) {
-            console.error(err);
-            alert("保存に失敗しました");
-        } finally {
-            saveBtn.disabled = false;
-            saveBtn.textContent = "補充後の在庫を保存";
-        }
+        } catch (e) { alert("保存失敗"); }
+        saveBtn.textContent = "補充後の在庫を保存";
+        saveBtn.disabled = false;
     };
 
-    // ------------------------
-    // 報告文生成（レイアウト復活！）
-    // ------------------------
+    // 報告文作成
     reportBtn.onclick = () => {
         const storeName = storeSelect.value;
         if (!storeName) return;
-
         const now = new Date();
-        const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}（${["日曜","月曜","火曜","水曜","木曜","金曜","土曜"][now.getDay()]}）`;
+        const dateStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}（${["日","月","火","水","木","金","土"][now.getDay()]}）`;
         const gigaUrl = document.getElementById('gigafileUrl').value;
-
         let text = `${dateStr} ${storeName}\n\n`;
-        if (gigaUrl) text += `■自販機写真（ギガファイル便）\n${gigaUrl}\n\n`;
-
-        const itemRows = document.querySelectorAll('.item-row');
+        if (gigaUrl) text += `■自販機写真\n${gigaUrl}\n\n`;
+        const rows = document.querySelectorAll('.item-row');
         text += `[補充前]\n`;
-        itemRows.forEach((row, index) => {
-            const name = row.querySelector('strong').textContent;
-            const p = row.querySelector('.prev').value || 0;
-            text += `${name} ${p}\n`;
-            if (itemRows[index + 1] && itemRows[index + 1].querySelector('strong').textContent === "コップ小") text += `\n`;
+        rows.forEach((row, i) => {
+            text += `${row.querySelector('strong').textContent} ${row.querySelector('.prev').value}\n`;
+            if (rows[i+1] && rows[i+1].querySelector('strong').textContent === "コップ小") text += `\n`;
         });
-
-        text += `\n\n[補充後]\n`;
-        itemRows.forEach((row, index) => {
-            const name = row.querySelector('strong').textContent;
-            const c = row.querySelector('.curr').value || 0;
-            text += `${name} ${c}\n`;
-            if (itemRows[index + 1] && itemRows[index + 1].querySelector('strong').textContent === "コップ小") text += `\n`;
+        text += `\n[補充後]\n`;
+        rows.forEach((row, i) => {
+            text += `${row.querySelector('strong').textContent} ${row.querySelector('.curr').value}\n`;
+            if (rows[i+1] && rows[i+1].querySelector('strong').textContent === "コップ小") text += `\n`;
         });
-
         output.textContent = text;
     };
 
-    // ------------------------
-    // Gmailボタン（復活！）
-    // ------------------------
-    const gmailBtn = document.createElement('button');
-    gmailBtn.textContent = 'Gmailで報告（下書き作成）';
-    gmailBtn.style.backgroundColor = '#ea4335';
-    gmailBtn.style.color = 'white';
-    gmailBtn.style.padding = '10px';
-    gmailBtn.style.border = 'none';
-    gmailBtn.style.borderRadius = '4px';
-    gmailBtn.style.cursor = 'pointer';
-    gmailBtn.style.marginTop = '10px';
-    document.body.insertBefore(gmailBtn, output);
-    
+    // Gmail送信
     gmailBtn.onclick = () => {
-        const reportText = output.textContent;
-        if (!reportText) return alert('先に「報告文を作成」を押してください');
-        const to = "siroitori1z@gmail.com"; 
-        const subject = encodeURIComponent(`${storeSelect.value} 在庫報告`);
-        const body = encodeURIComponent(reportText);
-        window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+        if (!output.textContent) return alert("先に報告文を作成してください");
+        const to = "siroitori1z@gmail.com";
+        window.location.href = `mailto:${to}?subject=${encodeURIComponent(storeSelect.value + " 在庫報告")}&body=${encodeURIComponent(output.textContent)}`;
     };
 };
