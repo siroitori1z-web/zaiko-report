@@ -1,94 +1,180 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>在庫報告ツール_最終修正版</title>
+    <title>在庫報告ツール（ChatGPT版）</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 15px; max-width: 600px; margin: auto; }
-        h1 { text-align: center; color: #0056b3; }
-        select, input, button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
-        button { cursor: pointer; font-weight: bold; border: none; background: #1a73e8; color: white; }
-        .item-row { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .input-group { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
-        .input-group input { width: 80px; }
+        body {
+            font-family: sans-serif;
+            background: #f0f2f5;
+            padding: 15px;
+            color: #333;
+            max-width: 600px;
+            margin: auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #0056b3;
+            font-size: 1.2em;
+        }
+
+        select,
+        input,
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+        }
+
+        #saveBtn {
+            background-color: #1a73e8;
+            color: white;
+            margin-top: 20px;
+        }
+
+        .item-row {
+            background: white;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .item-row strong {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-group input {
+            width: 90px;
+        }
     </style>
 </head>
+
 <body>
+
     <h1>在庫報告ツール</h1>
-    <div id="status" style="text-align:center; color:#666;">接続中...</div>
-    <select id="storeSelect"><option value="">店舗を選択してください</option></select>
-    <div id="fields"></div>
+    <select id="storeSelect">
+        <option value="">店舗を選択</option>
+    </select>
+
+    <div id="inventoryFields"></div>
+
     <button id="saveBtn">スプレッドシートに保存</button>
 
     <script>
-        // ここにコピーしたGASのURLを貼り付け
+        // ここにGASのURLを貼り付けてください
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxu8GIUU1F68aWGtHsZ9J64rDZd3CcX99YbkyQ2WQLbeYDUBTkRX154UbEkYlEB3rsFog/exec";
 
-        let allData = [];
+        let sheetHeaders = [];
+        let cloudData = {};
 
-        async function init() {
+        const storeSelect = document.getElementById("storeSelect");
+        const fieldsDiv = document.getElementById("inventoryFields");
+
+        function normalize(str) {
+            return String(str)
+                .normalize("NFKC")
+                .replace(/[\s\u3000\u00A0]/g, "")
+                .trim();
+        }
+
+        async function loadCloudData() {
             try {
                 const res = await fetch(GAS_URL);
                 const json = await res.json();
-                allData = json.raw;
-                
-                const select = document.getElementById("storeSelect");
-                json.stores.forEach(s => {
-                    const opt = document.createElement("option");
-                    opt.value = opt.textContent = s;
-                    select.appendChild(opt);
-                });
-                document.getElementById("status").textContent = "同期完了";
-            } catch (e) {
-                document.getElementById("status").textContent = "取得エラー：URLを確認してください";
+                sheetHeaders = json.headers.slice(1);
+                cloudData = {};
+                for (const store in json.data) {
+                    const normalizedStore = normalize(store);
+                    cloudData[normalizedStore] = {};
+                    for (const item in json.data[store]) {
+                        const key = normalize(item);
+                        cloudData[normalizedStore][key] = json.data[store][item];
+                    }
+                }
+                populateStores(Object.keys(json.data));
+            } catch (err) {
+                alert("データ取得失敗");
             }
         }
 
-        document.getElementById("storeSelect").onchange = function() {
-            const store = this.value;
-            const fields = document.getElementById("fields");
-            fields.innerHTML = "";
-            
-            allData.filter(d => d.store === store).forEach(d => {
-                const div = document.createElement("div");
-                div.className = "item-row";
-                div.innerHTML = `
-                    <strong>${d.item}</strong>
+        function populateStores(stores) {
+            storeSelect.innerHTML = '<option value="">店舗を選択</option>';
+            stores.forEach(store => {
+                const opt = document.createElement("option");
+                opt.value = store;
+                opt.textContent = store;
+                storeSelect.appendChild(opt);
+            });
+        }
+
+        function renderFields(storeName) {
+            fieldsDiv.innerHTML = "";
+            if (!storeName) return;
+            const normalizedStore = normalize(storeName);
+            const savedData = cloudData[normalizedStore] || {};
+
+            sheetHeaders.forEach(header => {
+                const normalizedHeader = normalize(header);
+                const value = savedData[normalizedHeader] ?? 0;
+
+                const row = document.createElement("div");
+                row.className = "item-row";
+                row.innerHTML = `
+                    <strong>${header}</strong>
                     <div class="input-group">
-                        補充前: <input type="text" value="${d.value}" readonly style="background:#eee;">
-                        補充後: <input type="number" class="curr" data-item="${d.item}" value="${d.value}">
+                        補充前: <input type="number" value="${value}" readonly style="background:#eee;">
+                        補充後: <input type="number" class="curr" data-item="${header}" value="${value}">
                     </div>
                 `;
-                fields.appendChild(div);
+                fieldsDiv.appendChild(row);
             });
-        };
+        }
 
-        document.getElementById("saveBtn").onclick = async function() {
-            const storeName = document.getElementById("storeSelect").value;
-            if(!storeName) return alert("店舗を選んでください");
-
-            const updateData = {};
+        async function saveData() {
+            const storeName = storeSelect.value;
+            if (!storeName) return alert("店舗を選択してください");
+            const data = {};
             document.querySelectorAll(".curr").forEach(el => {
-                updateData[el.dataset.item] = el.value;
+                const key = normalize(el.dataset.item);
+                data[key] = Number(el.value) || 0;
             });
-
-            this.textContent = "保存中...";
             try {
                 await fetch(GAS_URL, {
                     method: "POST",
-                    body: JSON.stringify({ storeName, data: updateData })
+                    body: JSON.stringify({ storeName: normalize(storeName), data })
                 });
-                alert("保存しました！再読み込みして確認してください。");
-                location.reload();
+                alert("保存完了");
             } catch (e) {
-                alert("保存に失敗しました");
+                alert("保存失敗");
             }
-            this.textContent = "スプレッドシートに保存";
-        };
+        }
 
-        init();
+        storeSelect.onchange = () => renderFields(storeSelect.value);
+        document.getElementById("saveBtn").onclick = saveData;
+
+        loadCloudData();
     </script>
 </body>
-</html>
 
+</html>
