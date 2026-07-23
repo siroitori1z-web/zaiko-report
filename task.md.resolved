@@ -1,0 +1,11 @@
+# Inventory Reporting App
+
+- [ ] Create implementation plan and review with user
+- [ ] Set up index.html with base UI structure
+- [ ] Implement style.css with modern, premium vanilla CSS
+- [ ] Implement app.js with store data and core logic
+  - [ ] Store selection dropdown and input rendering
+  - [ ] LocalStorage save and load mechanism
+  - [ ] Report generation logic
+  - [ ] Gmail draft creation integration
+- [ ] Verify functionality
