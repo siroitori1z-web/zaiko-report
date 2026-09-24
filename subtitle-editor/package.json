@@ -1,0 +1,10 @@
+{
+  "name": "subtitle-editor-core",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "demo": "node examples/demo.mjs"
+  }
+}
