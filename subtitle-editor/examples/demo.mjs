@@ -116,9 +116,17 @@ const silenceJson = JSON.parse(readFileSync(path.join(HERE, 'sample_silence.json
 const segsPlain = segmentsFromSilenceJson(silenceJson, { fps: FPS });
 console.log(`   plain cut: ${segsPlain.length} kept segment(s), sequence duration = ${sequenceDuration(segsPlain, FPS).toFixed(2)}s`);
 
-const segsKeep1s = segmentsFromSilenceJson(silenceJson, { fps: FPS, keepSilenceSec: 1.0 });
+// keepTailRatio defaults to 0.7 (0.7s kept right after a speech span / 0.3s
+// right before the next one on a long gap; same 0.7/0.3 split is used for
+// the head/tail shares). videoDuration lets the tail share apply after the
+// very last speech span too.
+const segsKeep1s = segmentsFromSilenceJson(silenceJson, {
+  fps: FPS,
+  keepSilenceSec: 1.0,
+  videoDuration: VIDEO_DURATION,
+});
 console.log(
-  `   keepSilenceSec=1.0: ${segsKeep1s.length} kept segment(s), sequence duration = ${sequenceDuration(segsKeep1s, FPS).toFixed(2)}s`
+  `   keepSilenceSec=1.0 (keepTailRatio=0.7 default): ${segsKeep1s.length} kept segment(s), sequence duration = ${sequenceDuration(segsKeep1s, FPS).toFixed(2)}s`
 );
 
 const finalCues = store.getState().cues;

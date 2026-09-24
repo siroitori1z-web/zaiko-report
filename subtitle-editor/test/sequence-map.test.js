@@ -263,23 +263,128 @@ test('segmentsFromSilenceJson: start_frame/end_frame shape', () => {
   assert.equal(segs[0].srcOut, 60);
 });
 
-test('segmentsFromSilenceJson: keepSilenceSec keeps short gaps whole, trims long gaps to the edges', () => {
+test('segmentsFromSilenceJson: keepSilenceSec keeps short gaps whole (gap 0.5s <= keep 1.0)', () => {
   const json = {
     speech: [
       { start: 0, end: 2 }, // gap to next: 0.5s (short, <= keep)
       { start: 2.5, end: 4 },
-      { start: 10, end: 12 }, // gap to previous: 6s (long, > keep=1)
     ],
   };
   const segs = segmentsFromSilenceJson(json, { fps: 30, keepSilenceSec: 1 });
-  // short gap [2,2.5] (<=keep) is fully kept, and the near edge of the long gap [4,4.5]
-  // is contiguous with it, so they all merge into one continuous block [0,4.5].
-  assert.equal(segs.length, 2);
-  assert.ok(Math.abs((segs[0].srcOut - segs[0].srcIn) / 30 - 4.5) < 0.05);
+  // The whole 0.5s gap is kept (not cut at all), so speech0+gap+speech1 merge
+  // into one continuous [0, 4.0s] block.
+  assert.equal(segs.length, 1);
+  assert.equal(segs[0].srcIn, 0);
+  assert.equal(segs[0].srcOut, 120); // 4.0s @ 30fps
+});
 
-  // long gap [4,10] (6s > keep=1s) -> only 0.5s kept at each edge = 1s total extra,
-  // 5s of true silence in the middle is dropped.
-  const totalDuration = segs.reduce((sum, s) => sum + (s.srcOut - s.srcIn) / 30, 0);
-  // 4.5s (first block, incl. one edge of the long gap) + 0.5s (other edge) + 2s (last speech) = 7s
-  assert.ok(Math.abs(totalDuration - 7) < 0.1);
+test('segmentsFromSilenceJson: keepSilenceSec on a long gap splits 0.7 after / 0.3 before by default (30fps)', () => {
+  const json = {
+    speech: [
+      { start: 0, end: 2 }, // gap to next: 3.0s (> keep=1.0)
+      { start: 5, end: 7 },
+    ],
+  };
+  const segs = segmentsFromSilenceJson(json, { fps: 30, keepSilenceSec: 1 });
+  assert.equal(segs.length, 2);
+  // First block: speech0 [0,2.0s] + 0.7s kept right after it -> [0, 2.7s] = [0,81] frames.
+  assert.equal(segs[0].srcIn, 0);
+  assert.equal(segs[0].srcOut, 81);
+  // Second block: 0.3s kept right before speech1 + speech1 itself -> [4.7s,7.0s] = [141,210] frames.
+  assert.equal(segs[1].srcIn, 141);
+  assert.equal(segs[1].srcOut, 210);
+  // Total kept extra from the gap is exactly keepSilenceSec (1.0s = 30 frames).
+  const totalFrames = segs.reduce((sum, s) => sum + (s.srcOut - s.srcIn), 0);
+  assert.equal(totalFrames, 81 + (210 - 141)); // sanity: matches the block lengths above
+  assert.equal(totalFrames - (60 + 60), 30); // speech totals 4.0s (120 frames); +30 frames (1.0s) kept silence
+});
+
+test('segmentsFromSilenceJson: long gap at 24fps rounds 0.7/0.3 to 17/7 frames so the total is exactly 24 (keep=1.0)', () => {
+  const json = {
+    speech: [
+      { start: 0, end: 2 },
+      { start: 5, end: 7 },
+    ],
+  };
+  const segs = segmentsFromSilenceJson(json, { fps: 24, keepSilenceSec: 1 });
+  assert.equal(segs.length, 2);
+  // speech0 out = ceil(2*24)=48; +17 frames (round(0.7*24)=17) -> 65
+  assert.equal(segs[0].srcIn, 0);
+  assert.equal(segs[0].srcOut, 65);
+  // speech1 in = floor(5*24)=120; -7 frames (24-17) -> 113
+  assert.equal(segs[1].srcIn, 113);
+  assert.equal(segs[1].srcOut, 168);
+  // Invariant: total kept frames from the gap == round(keep * fps).
+  const keptExtraFrames = (segs[0].srcOut - 48) + (120 - segs[1].srcIn);
+  assert.equal(keptExtraFrames, Math.round(1 * 24));
+  assert.equal(keptExtraFrames, 24);
+});
+
+test('segmentsFromSilenceJson: keepTailRatio=0.5 reproduces the old symmetric keep/2 + keep/2 split', () => {
+  const json = {
+    speech: [
+      { start: 0, end: 2 },
+      { start: 5, end: 7 },
+    ],
+  };
+  const segs = segmentsFromSilenceJson(json, { fps: 30, keepSilenceSec: 1, keepTailRatio: 0.5 });
+  assert.equal(segs.length, 2);
+  // 0.5s (15 frames) kept on each side of the cut.
+  assert.equal(segs[0].srcOut - 60, 15); // 60 = ceil(2*30)
+  assert.equal(150 - segs[1].srcIn, 15); // 150 = floor(5*30)
+});
+
+test('segmentsFromSilenceJson: rejects an out-of-range keepTailRatio', () => {
+  const json = { speech: [{ start: 0, end: 1 }] };
+  assert.throws(() => segmentsFromSilenceJson(json, { keepSilenceSec: 1, keepTailRatio: 1.5 }));
+  assert.throws(() => segmentsFromSilenceJson(json, { keepSilenceSec: 1, keepTailRatio: -0.1 }));
+});
+
+test('segmentsFromSilenceJson: video head longer than the head-side share keeps only that share, right before the first speech', () => {
+  // Head gap [0, 0.5s] (15 frames @ 30fps) is longer than the head share
+  // (keep*(1-0.7) = 0.3s = 9 frames), so only the 9 frames right before
+  // the first speech are kept; the first 6 frames (0.2s) are dropped.
+  const json = { speech: [{ start: 0.5, end: 2 }] };
+  const segs = segmentsFromSilenceJson(json, { fps: 30, keepSilenceSec: 1 });
+  assert.equal(segs.length, 1);
+  assert.equal(segs[0].srcIn, 6); // 15 - 9
+  assert.equal(segs[0].srcOut, 60); // ceil(2*30)
+});
+
+test('segmentsFromSilenceJson: video head shorter than the head-side share is kept in full', () => {
+  // Head gap [0, 0.2s] (6 frames) is shorter than the head share (9 frames),
+  // so the whole head gap is kept.
+  const json = { speech: [{ start: 0.2, end: 2 }] };
+  const segs = segmentsFromSilenceJson(json, { fps: 30, keepSilenceSec: 1 });
+  assert.equal(segs.length, 1);
+  assert.equal(segs[0].srcIn, 0);
+  assert.equal(segs[0].srcOut, 60);
+});
+
+test('segmentsFromSilenceJson: video tail longer than the tail-side share keeps only that share, right after the last speech (requires videoDuration)', () => {
+  // speech ends at 2.0s, video is 5.0s long -> tail gap is 3.0s (90 frames),
+  // longer than the tail share (keep*0.7 = 0.7s = 21 frames), so only 21
+  // frames right after the last speech are kept.
+  const json = { speech: [{ start: 0, end: 2 }] };
+  const segs = segmentsFromSilenceJson(json, { fps: 30, keepSilenceSec: 1, videoDuration: 5.0 });
+  assert.equal(segs.length, 1);
+  assert.equal(segs[0].srcIn, 0);
+  assert.equal(segs[0].srcOut, 81); // ceil(2*30)=60, +21 frames
+});
+
+test('segmentsFromSilenceJson: video tail shorter than the tail-side share is kept in full', () => {
+  // speech ends at 4.8s, video is 5.0s -> tail gap is 0.2s (6 frames),
+  // shorter than the tail share (21 frames), so the whole tail is kept.
+  const json = { speech: [{ start: 0, end: 4.8 }] };
+  const segs = segmentsFromSilenceJson(json, { fps: 30, keepSilenceSec: 1, videoDuration: 5.0 });
+  assert.equal(segs.length, 1);
+  assert.equal(segs[0].srcIn, 0);
+  assert.equal(segs[0].srcOut, 150); // 5.0s @ 30fps, exactly the video end
+});
+
+test('segmentsFromSilenceJson: without videoDuration the tail is left untouched (no padding after the last speech)', () => {
+  const json = { speech: [{ start: 0, end: 2 }] };
+  const segs = segmentsFromSilenceJson(json, { fps: 30, keepSilenceSec: 1 });
+  assert.equal(segs.length, 1);
+  assert.equal(segs[0].srcOut, 60); // ceil(2*30), no tail padding added
 });

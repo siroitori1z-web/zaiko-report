@@ -128,9 +128,20 @@ empty-text rows to delete).
 Maps between original-footage ("source") time and the jet-cut
 ("sequence") timeline built by concatenating kept/speech segments with no
 gaps. `rounding: 'outward'` (default) never trims wanted content (in =
-floor, out = ceil, in frames). `keepSilenceSec` implements a documented
-"keep N seconds of a long cut" heuristic — see the JSDoc in the file for
-the precise rule.
+floor, out = ceil, in frames). `keepSilenceSec` implements the confirmed
+production "keep N seconds of a long cut" rule (auto-edit stage 12): a
+silence gap `<= keepSilenceSec` is kept in full; a longer gap keeps
+exactly `keepSilenceSec` seconds of it, split asymmetrically around the
+cut via `keepTailRatio` (default `0.7`) — `keepSilenceSec * keepTailRatio`
+right after the previous speech and `keepSilenceSec * (1 - keepTailRatio)`
+right before the next one (e.g. keep 1.0s → 0.7s after / 0.3s before). The
+same 0.7/0.3 shares apply to the video head (before the first speech —
+keeps only the `(1 - keepTailRatio)` share, or the whole head gap if
+shorter) and, when `videoDuration` is given, the video tail (after the
+last speech — keeps only the `keepTailRatio` share, or the whole tail gap
+if shorter). All splits are computed in whole frames so the total kept
+length always matches `round(keepSilenceSec * fps)` exactly — see the
+JSDoc in the file for the precise rule.
 
 Boundary rules (see the JSDoc on `sourceToSequence`/`sequenceToSource` for
 the full reasoning):
@@ -167,7 +178,7 @@ by-index patches (`restoreFromLegacy`).
 
 ## Quality
 
-- `npm test` runs 145 unit tests across all 11 modules (`node --test`,
+- `npm test` runs 154 unit tests across all 11 modules (`node --test`,
   zero dependencies) — all passing.
 - `npm run demo` runs an end-to-end scenario against `examples/sample.srt`
   and `examples/sample_silence.json` and writes
@@ -195,14 +206,26 @@ by-index patches (`restoreFromLegacy`).
   word `mapCuesToSequence`'s warning message; it no longer changes which
   frame is returned (an earlier draft did, which was a bug — see the
   regression tests in `test/sequence-map.test.js`).
-- **`keepSilenceSec` method**: precisely, for each silence gap `[a,b]`
-  between two speech segments, a gap `<= keepSilenceSec` is kept in full
-  (not cut at all); a gap `> keepSilenceSec` keeps only `[a, a+keep/2]`
-  and `[b-keep/2, b]`, dropping the middle. (The task text's descriptive
-  sentence said "longer than 2*keep"; the precise rule it then gave uses
-  `> keepSilenceSec`, which is what's implemented — it is the simpler,
-  self-consistent reading.) Adjacent kept pieces that become contiguous
-  after outward frame-rounding are merged, same as any other segment.
+- **`keepSilenceSec` / `keepTailRatio` method**: precisely, for each
+  silence gap `[a,b]` between two speech segments, a gap `<=
+  keepSilenceSec` is kept in full (not cut at all); a gap `>
+  keepSilenceSec` keeps only `[a, a+keep*keepTailRatio]` and
+  `[b-keep*(1-keepTailRatio), b]`, dropping the middle — this is the
+  confirmed production rule (auto-edit stage 12), with `keepTailRatio`
+  defaulting to `0.7` (an earlier draft used a symmetric `keep/2`/`keep/2`
+  split; pass `keepTailRatio: 0.5` to reproduce that). The video head
+  (before the first speech) keeps only the `keep*(1-keepTailRatio)` share
+  right before that speech, or the whole head gap if it's shorter; the
+  video tail (after the last speech, only when `videoDuration` is passed)
+  keeps only the `keep*keepTailRatio` share right after it, or the whole
+  tail gap if it's shorter. The after/before frame counts are computed as
+  `round(keep*fps*keepTailRatio)` and `round(keep*fps) - after` (the
+  complement, not independently rounded), so they always sum to exactly
+  `round(keep*fps)` frames — e.g. keep=1.0s @ 24fps is 24 frames total,
+  split 17/7 (`round(16.8)=17`, `24-17=7`) rather than `17` and
+  `round(7.2)=7` computed independently, which isn't guaranteed to sum to
+  24 in general. Adjacent kept pieces that become contiguous after outward
+  frame-rounding are merged, same as any other segment.
 - **`editor-store` selection after undo/redo**: if the previously
   selected cue no longer exists (e.g. undoing an `add`), selection falls
   back to another id touched by that history entry, or the first cue, or

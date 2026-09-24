@@ -59,24 +59,73 @@ export function buildSegments(speech, { fps = 30, rounding = 'outward', mergeOve
 }
 
 /**
+ * Split `keepSilenceSec` worth of frames into an "after" share (kept right
+ * after the preceding speech) and a "before" share (kept right before the
+ * following speech), per the confirmed production rule (auto-edit stage
+ * 12): `keepTailRatio` (default 0.7) controls the split, and the two
+ * shares are computed so they always sum to exactly `round(keepSilenceSec
+ * * fps)` frames -- the "before" share is the *complement* of the "after"
+ * share (`total - after`), not independently rounded, so e.g. 1.0s @ 24fps
+ * (24 frames total) with the default 0.7 ratio gives 17 after (round(16.8))
+ * and 7 before (24 - 17), rather than 17/7.2->7 which could drift off the
+ * 24-frame total.
+ * @param {number} keepSilenceSec
+ * @param {number} fps
+ * @param {number} keepTailRatio
+ * @returns {{totalFrames:number, afterFrames:number, beforeFrames:number}}
+ */
+function splitKeepFrames(keepSilenceSec, fps, keepTailRatio) {
+  const totalFrames = Math.round(keepSilenceSec * fps);
+  const afterFrames = Math.round(keepSilenceSec * fps * keepTailRatio);
+  const beforeFrames = totalFrames - afterFrames;
+  return { totalFrames, afterFrames, beforeFrames };
+}
+
+function assertKeepTailRatio(keepTailRatio) {
+  if (typeof keepTailRatio !== 'number' || !Number.isFinite(keepTailRatio) || keepTailRatio < 0 || keepTailRatio > 1) {
+    throw new Error(`Invalid keepTailRatio: ${keepTailRatio} (must be a number in [0, 1])`);
+  }
+}
+
+/**
  * Build kept segments from the silence-detector JSON shape, optionally
  * applying the "keep N seconds of silence" method.
  *
- * `keepSilenceSec` method (documented precisely here):
- * for each silence gap [a, b] between two consecutive speech segments,
+ * `keepSilenceSec` / `keepTailRatio` method (documented precisely here --
+ * matches the confirmed production rule, auto-edit stage 12):
+ *
+ * For each silence gap [a, b] between two consecutive speech segments:
  *   - if (b - a) <= keepSilenceSec: keep the whole gap (don't cut it at all).
- *   - if (b - a) >  keepSilenceSec: keep only the two edges of the gap,
- *     [a, a + keepSilenceSec/2] and [b - keepSilenceSec/2, b], dropping the
- *     middle. This leaves exactly `keepSilenceSec` seconds of the gap in
- *     the sequence (a short "breather" on each side of the cut) instead of
- *     cutting straight from one speech segment to the next.
+ *   - if (b - a) >  keepSilenceSec: keep exactly `keepSilenceSec` seconds of
+ *     it, split asymmetrically around the cut using `keepTailRatio` (default
+ *     0.7): `keepSilenceSec * keepTailRatio` right AFTER the previous speech
+ *     ([a, a + keep*ratio]) and `keepSilenceSec * (1 - keepTailRatio)` right
+ *     BEFORE the next speech ([b - keep*(1-ratio), b]), dropping the middle.
+ *
+ * The video head (silence before the first speech segment) and video tail
+ * (silence after the last speech segment, when `videoDuration` is given)
+ * are handled the same way, using only the single relevant share:
+ *   - Head: keep `keepSilenceSec * (1 - keepTailRatio)` immediately before
+ *     the first speech (or the whole head gap, if it is shorter).
+ *   - Tail: keep `keepSilenceSec * keepTailRatio` immediately after the
+ *     last speech (or the whole tail gap, if it is shorter). Requires
+ *     `videoDuration` (seconds); without it the tail is left untouched.
+ *
+ * `keepTailRatio=0.5` reproduces the old symmetric keep/2-keep/2 behavior.
+ * All splits are computed in whole frames (see `splitKeepFrames`) so the
+ * total kept length always frame-matches `round(keepSilenceSec * fps)`
+ * exactly, then converted back to seconds before the normal outward
+ * (floor-in/ceil-out) frame alignment in `buildSegments` -- since those
+ * seconds already sit exactly on a frame boundary, that alignment is a
+ * no-op and no further drift is introduced.
  *
  * @param {{speech?:Array<object>, silence?:Array<object>}} json
- * @param {{fps?:number, rounding?:'outward'|'nearest', mergeOverlapping?:boolean, keepSilenceSec?:number}} [opts]
+ * @param {{fps?:number, rounding?:'outward'|'nearest', mergeOverlapping?:boolean, keepSilenceSec?:number, keepTailRatio?:number, videoDuration?:number}} [opts]
  * @returns {Array<{srcIn:number, srcOut:number, seqIn:number, seqOut:number}>}
  */
 export function segmentsFromSilenceJson(json, opts = {}) {
-  const { fps = 30, rounding = 'outward', mergeOverlapping = true, keepSilenceSec = 0 } = opts;
+  const { fps = 30, rounding = 'outward', mergeOverlapping = true, keepSilenceSec = 0, keepTailRatio = 0.7, videoDuration } = opts;
+  assertKeepTailRatio(keepTailRatio);
   const rawSpeech = Array.isArray(json?.speech) ? json.speech : [];
 
   const toSeconds = (s) =>
@@ -85,20 +134,56 @@ export function segmentsFromSilenceJson(json, opts = {}) {
   const speechSegs = rawSpeech.map(toSeconds).sort((a, b) => a.start - b.start);
   let kept = speechSegs.map((s) => ({ start: s.start, end: s.end }));
 
-  if (keepSilenceSec > 0) {
+  if (keepSilenceSec > 0 && speechSegs.length > 0) {
+    const { afterFrames, beforeFrames } = splitKeepFrames(keepSilenceSec, fps, keepTailRatio);
     const extra = [];
+
     for (let i = 0; i < speechSegs.length - 1; i++) {
       const a = speechSegs[i].end;
       const b = speechSegs[i + 1].start;
       const gap = b - a;
       if (gap <= 0) continue;
       if (gap > keepSilenceSec) {
-        extra.push({ start: a, end: a + keepSilenceSec / 2 });
-        extra.push({ start: b - keepSilenceSec / 2, end: b });
+        // Frame-exact split: anchor on the same frames buildSegments would
+        // give the neighboring speech segments (ceil for an out-point,
+        // floor for an in-point), so the after/before pieces butt right up
+        // against them with no spurious extra/missing frame.
+        const aFrame = timeToFrame(a, fps, 'ceil');
+        const bFrame = timeToFrame(b, fps, 'floor');
+        extra.push({ start: frameToTime(aFrame, fps), end: frameToTime(aFrame + afterFrames, fps) });
+        extra.push({ start: frameToTime(bFrame - beforeFrames, fps), end: frameToTime(bFrame, fps) });
       } else {
         extra.push({ start: a, end: b });
       }
     }
+
+    // Video head: silence before the first speech segment. Keep only the
+    // head-side share (`beforeFrames`, i.e. keep*(1-keepTailRatio)) right
+    // before the first speech, or the whole head gap if it's shorter.
+    const firstB = timeToFrame(speechSegs[0].start, fps, 'floor');
+    if (firstB > 0) {
+      const headFrames = Math.min(firstB, beforeFrames);
+      if (headFrames > 0) {
+        extra.push({ start: frameToTime(firstB - headFrames, fps), end: frameToTime(firstB, fps) });
+      }
+    }
+
+    // Video tail: silence after the last speech segment, up to
+    // `videoDuration` (if known). Keep only the tail-side share
+    // (`afterFrames`, i.e. keep*keepTailRatio) right after the last speech,
+    // or the whole tail gap if it's shorter.
+    if (typeof videoDuration === 'number' && Number.isFinite(videoDuration)) {
+      const lastA = timeToFrame(speechSegs[speechSegs.length - 1].end, fps, 'ceil');
+      const durFrame = Math.round(videoDuration * fps);
+      const tailGapFrames = durFrame - lastA;
+      if (tailGapFrames > 0) {
+        const tailFrames = Math.min(tailGapFrames, afterFrames);
+        if (tailFrames > 0) {
+          extra.push({ start: frameToTime(lastA, fps), end: frameToTime(lastA + tailFrames, fps) });
+        }
+      }
+    }
+
     kept = kept.concat(extra);
   }
 
