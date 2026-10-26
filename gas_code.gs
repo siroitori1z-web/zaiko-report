@@ -93,9 +93,11 @@ function readInventory_() {
   const out = {};
   const sh = invSheet_();
   let rows = rows_(sh);
-  // 初回だけ: 旧「在庫データ」（行を足していく形）の最後の値から作る
+  // 初回だけ: 旧シート（「在庫」= 値を書き換える形、または「在庫データ」= 行を足していく形）の
+  // 最後の値から作る。どちらも 店舗 | 商品 | 値 の3列
   if (!rows.length) {
-    const old = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("在庫データ");
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const old = ss.getSheetByName("在庫") || ss.getSheetByName("在庫データ");
     if (old && old.getLastRow() > 0) {
       const latest = {};
       old.getRange(1, 1, old.getLastRow(), 3).getValues().forEach((r) => {
