@@ -4,24 +4,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>在庫報告ツール</title>
+    <meta name="theme-color" content="#0d7c66">
+    <title>在庫報告</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <h1>在庫報告ツール</h1>
-    <select id="storeSelect">
-        <!-- JSで動的に追加されます -->
-    </select>
+    <header class="top">
+        <h1>在庫報告</h1>
+        <label class="day">作業日 <input type="date" id="workDay"></label>
+        <button type="button" id="settingsBtn" class="ghost" title="合言葉の設定">⚙</button>
+    </header>
 
-    <div id="inventoryFields">
-        <!--JSで動的に追加されます -->
-    </div>
+    <section id="settings" class="card" hidden>
+        <label>合言葉（スプレッドシートの Apps Script で作ったもの）
+            <input type="text" id="token" autocomplete="off" spellcheck="false">
+        </label>
+        <button type="button" id="saveToken">保存</button>
+    </section>
 
-    <button id="saveBtn">補充後の在庫を保存</button>
-    <button id="reportBtn" style="background-color: #34a853; margin-top: 10px;">報告文を作成</button>
+    <div id="net" class="net"></div>
 
-    <div id="output"></div>
+    <nav id="stores" class="stores"></nav>
+
+    <main id="form" class="card"></main>
+
+    <section id="cartBox" class="card" hidden>
+        <h2>🛒 発注したい物</h2>
+        <div id="cart"></div>
+        <button type="button" id="sendOrder" class="order">発注依頼を送る</button>
+        <p class="hint">送った依頼は、PC の拡張機能で MarketWatcher の資材発注に入力します（最後の発注ボタンは自分で押します）。</p>
+    </section>
 
     <script src="app.js"></script>
 </body>

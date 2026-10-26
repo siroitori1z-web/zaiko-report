@@ -1,67 +1,126 @@
-/* アプリ全体の見た目を整える設定 */
+/* 現場でスマホを片手で使う前提: 大きな文字・大きなボタン */
+:root {
+    --main: #0d7c66;
+    --bg: #f0f2f5;
+    --card: #fff;
+    --text: #222;
+    --sub: #666;
+    --low: #fff4e5;
+    --lowLine: #f59e0b;
+    --ng: #c62828;
+}
+
+* { box-sizing: border-box; }
+
 body {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
-    padding: 20px;
-    background-color: #f0f2f5;
-    color: #333;
-    max-width: 600px;
     margin: 0 auto;
+    max-width: 640px;
+    padding: 0 12px 40px;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 -apple-system, "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
 }
 
-h1 {
-    text-align: center;
-    color: #1a73e8;
+.top {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    background: var(--bg);
 }
 
-select,
-button {
-    width: 100%;
+.top h1 { margin: 0; font-size: 20px; color: var(--main); flex: 1; }
+.day { font-size: 13px; color: var(--sub); }
+.day input { font-size: 16px; padding: 4px; }
+
+.card {
+    background: var(--card);
+    border-radius: 10px;
     padding: 12px;
     margin: 10px 0;
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    font-size: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .1);
 }
+
+.card h2 { font-size: 16px; margin: 0 0 8px; }
 
 button {
-    background-color: #1a73e8;
-    color: white;
+    font: inherit;
     border: none;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-button:hover {
-    background-color: #1557b0;
-}
-
-.item-row {
-    background: white;
-    padding: 15px;
-    margin-bottom: 10px;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    background: var(--main);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
 }
 
-.item-row strong {
-    display: block;
-    margin-bottom: 8px;
-    font-size: 18px;
-}
+button:disabled { opacity: .5; }
+button.ghost { background: transparent; color: var(--sub); font-size: 20px; padding: 4px 8px; }
+button.sub { background: #e5e7eb; color: #333; font-weight: 600; padding: 8px 10px; }
+button.save { width: 100%; font-size: 18px; padding: 16px; margin-top: 12px; }
+button.order { width: 100%; background: #b45309; margin-top: 8px; }
 
-input[type="number"] {
-    width: 70px;
+input[type="text"] {
+    font: inherit;
+    width: 100%;
     padding: 8px;
-    margin: 0 10px;
     border: 1px solid #ccc;
-    border-radius: 4px;
+    border-radius: 6px;
 }
 
-#output {
-    margin-top: 20px;
-    white-space: pre-wrap;
+.net { font-size: 13px; color: var(--sub); min-height: 1.2em; }
+.net.warn { color: var(--ng); font-weight: 700; }
+
+/* 店舗: 今日のルートを回る順に */
+.stores { display: flex; flex-wrap: wrap; gap: 6px; }
+.stores button {
+    flex: 1 1 30%;
     background: #fff;
-    padding: 15px;
-    border-left: 5px solid #1a73e8;
-    border-radius: 4px;
+    color: var(--text);
+    border: 2px solid #d1d5db;
+    padding: 8px 4px;
+    font-weight: 600;
 }
+.stores button.cur { border-color: var(--main); background: #e6f4f1; }
+.stores button.sent { color: var(--main); }
+.stores button.wait { color: #b45309; }
+.stores select { flex: 1 1 100%; font: inherit; padding: 6px; }
+
+.route { font-size: 13px; color: var(--sub); margin: 6px 0 2px; flex-basis: 100%; }
+
+/* 商品の行 */
+.row {
+    display: grid;
+    grid-template-columns: 1fr 74px 74px 40px;
+    gap: 6px;
+    align-items: center;
+    padding: 6px 4px;
+    border-bottom: 1px solid #eee;
+}
+.row.head { font-size: 12px; color: var(--sub); border-bottom: 2px solid #ddd; }
+.row.supply { background: #f8fafc; }
+.row.low { background: var(--low); box-shadow: inset 4px 0 0 var(--lowLine); }
+.row .name { font-weight: 600; line-height: 1.25; }
+.row .name small { display: block; font-weight: 400; font-size: 12px; color: var(--sub); }
+.row .name .lowTag { color: #b45309; font-weight: 700; }
+.row input { text-align: right; font-size: 18px; padding: 6px; }
+.row input.bad { border-color: var(--ng); background: #fdecea; }
+.row .cartBtn { background: #f3f4f6; color: #999; padding: 6px 0; font-size: 18px; }
+.row .cartBtn.on { background: #fde68a; color: #92400e; }
+
+.tools { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+
+.status { margin-top: 10px; font-weight: 700; min-height: 1.4em; }
+.status.ok { color: var(--main); }
+.status.ng { color: var(--ng); }
+
+.cartRow { display: grid; grid-template-columns: 1fr 70px 36px; gap: 6px; align-items: center; padding: 4px 0; }
+.cartRow small { color: var(--sub); }
+.cartRow button { padding: 6px 0; background: #f3f4f6; color: #555; }
+
+.hint { font-size: 12px; color: var(--sub); }
+
+pre.report { white-space: pre-wrap; font-size: 12px; background: #f8fafc; padding: 8px; border-radius: 6px; }
