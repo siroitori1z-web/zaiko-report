@@ -158,13 +158,20 @@ function renderForm() {
     const last = inventory[s.name] || {};
     const k = keyOf(workDay, s.name);
     main.innerHTML = `<h2>${s.name}${sent[k] ? `　<span class="hint">✓ ${sent[k]} 送信済み（直して送り直せます）</span>` : ""}</h2>
+        <div id="lowBanner" class="lowBanner" hidden></div>
         <div class="row head"><span>商品（前回）</span><span>補充前</span><span>補充後</span><span>🛒</span></div>`;
+    // 補充後が少ない品を、いちばん上に赤字でまとめる
+    const showLow = () => {
+        const lows = s.items.filter((it) => lowOf(it, dr.after[it]));
+        $("lowBanner").hidden = !lows.length;
+        $("lowBanner").textContent = `⚠ 在庫が少なくなっています: ${lows.join("・")}（🛒 で発注依頼できます）`;
+    };
     for (const it of s.items) {
         const row = document.createElement("div");
         const low = lowOf(it, dr.after[it]);
         row.className = "row" + (SUPPLIES.includes(it) ? " supply" : "") + (low ? " low" : "");
         const inCart = cart.some((c) => c.store === s.name && c.name === it);
-        row.innerHTML = `<span class="name">${it}<small>前回 ${last[it] ?? "-"}${low ? ' <span class="lowTag">少ない</span>' : ""}</small></span>
+        row.innerHTML = `<span class="name">${it}<small>前回 ${last[it] ?? "-"}${low ? ' <span class="lowTag">在庫が少なくなっています</span>' : ""}</small></span>
             <input type="text" inputmode="decimal" data-k="before" value="${dr.before[it] ?? ""}">
             <input type="text" inputmode="decimal" data-k="after" value="${dr.after[it] ?? ""}">
             <button type="button" class="cartBtn${inCart ? " on" : ""}" title="発注したい物に入れる">🛒</button>`;
@@ -172,12 +179,14 @@ function renderForm() {
             inp.oninput = () => {
                 dr[inp.dataset.k][it] = inp.value;
                 dr.touched = true;
+                if (!dr.startedAt) dr.startedAt = Date.now(); // 入力を始めた時刻（入店の目安）
                 saveDrafts();
                 inp.classList.toggle("bad", inp.value !== "" && !isNum(inp.value));
                 if (inp.dataset.k === "after") {
                     const l = lowOf(it, inp.value);
                     row.classList.toggle("low", l);
-                    row.querySelector("small").innerHTML = `前回 ${last[it] ?? "-"}${l ? ' <span class="lowTag">少ない</span>' : ""}`;
+                    row.querySelector("small").innerHTML = `前回 ${last[it] ?? "-"}${l ? ' <span class="lowTag">在庫が少なくなっています</span>' : ""}`;
+                    showLow();
                 }
             };
             inp.onfocus = () => inp.select();
@@ -185,6 +194,8 @@ function renderForm() {
         row.querySelector(".cartBtn").onclick = () => toggleCart(s.name, it);
         main.appendChild(row);
     }
+    showLow();
+    main.appendChild(renderPhotoSlots(s, dr));
     const tools = document.createElement("div");
     tools.className = "tools";
     tools.innerHTML = `<button type="button" class="sub" id="sameBtn">補充後 ＝ 補充前（補充なし）</button>
@@ -222,7 +233,10 @@ async function submit(s, dr) {
         return;
     }
     const clean = (vals) => Object.fromEntries(s.items.map((it) => [it, norm(vals[it])]));
-    const rep = { workDay, store: s.name, text: reportText(s, dr), before: clean(dr.before), after: clean(dr.after) };
+    const rep = {
+        workDay, store: s.name, text: reportText(s, dr), before: clean(dr.before), after: clean(dr.after),
+        startedAt: dr.startedAt || Date.now(), sentAt: Date.now(), // 入力開始・送信（入店・退店の目安になる）
+    };
     // 同じ日・同じ店舗の未送信は差し替え
     outbox = outbox.filter((r) => keyOf(r.workDay, r.store) !== keyOf(workDay, s.name)).concat(rep);
     store.set("outbox", outbox);
@@ -239,6 +253,101 @@ async function submit(s, dr) {
     } else {
         say("まだ送れていません。入力はスマホに残っているので、電波が戻ったら自動で送ります", false);
     }
+}
+
+// ---- 写真（撮ったらその場でドライブへ。家で拡張機能が巡回報告に入れる） -------------
+const PHOTO_SLOTS = ["業務開始時", "業務終了時", "サーバー全体（正面）", "サーバー内清掃前", "サーバー内清掃後", "原料在庫"];
+// 写真はスマホの中（IndexedDB）に置いてから送る。送れなくても消えない
+function photoDb() {
+    return new Promise((res, rej) => {
+        const r = indexedDB.open("zr2", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("photos");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+    });
+}
+async function photoOp(mode, fn) {
+    const db = await photoDb();
+    return new Promise((res, rej) => {
+        const t = db.transaction("photos", mode);
+        const req = fn(t.objectStore("photos"));
+        t.oncomplete = () => res(req && req.result);
+        t.onerror = () => rej(t.error);
+    });
+}
+const photoGet = (k) => photoOp("readonly", (s) => s.get(k));
+const photoPut = (k, v) => photoOp("readwrite", (s) => s.put(v, k));
+const photoAll = () => photoOp("readonly", (s) => s.getAll());
+const photoKeys = () => photoOp("readonly", (s) => s.getAllKeys());
+const photoDel = (k) => photoOp("readwrite", (s) => s.delete(k));
+
+const blobToBase64 = (blob) => new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(",")[1]);
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(blob);
+});
+
+let photoFlushing = false;
+async function flushPhotos() {
+    if (photoFlushing || !token) return;
+    photoFlushing = true;
+    try {
+        const keys = await photoKeys();
+        for (const k of keys) {
+            const rec = await photoGet(k);
+            if (!rec || rec.sent) continue;
+            rec.state = "送信中…";
+            render();
+            await api("photo", { workDay: rec.workDay, store: rec.store, slot: rec.slot, name: rec.name, mime: rec.type, data: await blobToBase64(rec.blob) });
+            rec.sent = true;
+            rec.state = "";
+            await photoPut(k, rec);
+        }
+    } catch (e) {
+        setNet(`写真の未送信があります（${e.message}）。電波が戻ったら自動で送り直します`, true);
+    } finally {
+        photoFlushing = false;
+        render();
+    }
+}
+// 1週間より前の写真はスマホから消す（ドライブには残る）
+async function prunePhotos() {
+    try {
+        const limit = Date.now() - 7 * 864e5;
+        for (const k of await photoKeys()) { const r = await photoGet(k); if (r && r.sent && r.at < limit) await photoDel(k); }
+    } catch { }
+}
+
+function renderPhotoSlots(s, dr) {
+    const box = document.createElement("div");
+    box.innerHTML = `<h3 class="ph">📷 写真（撮ったらその場で保存されます）</h3><div class="photos"></div>`;
+    const grid = box.querySelector(".photos");
+    for (const slot of PHOTO_SLOTS) {
+        const k = `${workDay}|${s.name}|${slot}`;
+        const cell = document.createElement("label");
+        cell.className = "pslot";
+        cell.innerHTML = `<input type="file" accept="image/*" hidden><span class="pimg">＋</span><span class="plabel">${slot}</span><span class="pstate"></span>`;
+        const inp = cell.querySelector("input");
+        inp.onchange = async () => {
+            const f = inp.files && inp.files[0];
+            if (!f) return;
+            if (!dr.startedAt) { dr.startedAt = Date.now(); dr.touched = true; saveDrafts(); }
+            await photoPut(k, { workDay, store: s.name, slot, blob: f, name: f.name || "photo.jpg", type: f.type || "image/jpeg", sent: false, at: Date.now() });
+            render();
+            flushPhotos();
+        };
+        photoGet(k).then((rec) => {
+            if (!rec) return;
+            const url = URL.createObjectURL(rec.blob);
+            cell.querySelector(".pimg").outerHTML = `<img class="pimg" src="${url}" alt="">`;
+            const st = cell.querySelector(".pstate");
+            st.textContent = rec.sent ? "✓ 保存済み" : rec.state || "⏳ 未送信";
+            st.className = "pstate " + (rec.sent ? "ok" : "wait");
+        }).catch(() => { });
+        grid.appendChild(cell);
+    }
+    return box;
 }
 
 // ---- 発注したい物 ---------------------------------------------------------------
@@ -308,8 +417,8 @@ $("workDay").onchange = (e) => {
     render();
 };
 
-window.addEventListener("online", flush);
+window.addEventListener("online", () => { flush(); flushPhotos(); });
 if (!ROUTES[routeOf(workDay)].includes(current)) current = ROUTES[routeOf(workDay)][0];
 render();
 if (!token) { $("settings").hidden = false; setNet("はじめに右上の ⚙ で合言葉を入れてください", true); }
-else { loadInventory(); flush(); }
+else { loadInventory(); flush(); flushPhotos(); prunePhotos(); }

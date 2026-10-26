@@ -113,6 +113,21 @@ input[type="text"] {
 
 .tools { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
 
+/* 在庫が少ない（赤字） */
+.lowBanner { margin: 6px 0; padding: 8px 10px; border-radius: 6px; background: #fdecea; color: var(--ng); font-weight: 700; }
+.lowBanner[hidden] { display: none; }
+.row .name .lowTag { color: var(--ng); }
+
+/* 写真6枚 */
+h3.ph { font-size: 15px; margin: 14px 0 6px; }
+.photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pslot { position: relative; display: flex; flex-direction: column; align-items: center; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 4px; cursor: pointer; background: #f8fafc; }
+.pslot .pimg { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 28px; color: #94a3b8; }
+.pslot .plabel { font-size: 11px; text-align: center; line-height: 1.2; margin-top: 2px; }
+.pslot .pstate { font-size: 11px; font-weight: 700; }
+.pslot .pstate.ok { color: var(--main); }
+.pslot .pstate.wait { color: #b45309; }
+
 .status { margin-top: 10px; font-weight: 700; min-height: 1.4em; }
 .status.ok { color: var(--main); }
 .status.ng { color: var(--ng); }

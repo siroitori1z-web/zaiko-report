@@ -25,6 +25,11 @@
  *        payload = { store, items: [{ name, qty, memo }] }
  *   ?action=orders[&all=1]                  → 未発注の依頼 → { ok, orders: [...] }
  *   ?action=markOrdered&id=ID               → 発注済にする
+ *   action=photo  payload={ workDay, store, slot, name, mime, data(base64) } → ドライブに保存 → { ok, id }
+ *   action=photos payload={ workDay, store } → [{ slot, id, name }]
+ *   action=photoData id=ファイルID          → { ok, name, mime, data(base64) }
+ *
+ * 写真を使うには、最初に1回だけ関数「写真フォルダを作る」を実行して、ドライブの許可を出す。
  */
 
 const TZ = "Asia/Tokyo";
@@ -61,6 +66,9 @@ function doGet(e) {
       case "order": return json_(saveOrder_(payload));
       case "orders": return json_({ ok: true, orders: listOrders_(p.all === "1") });
       case "markOrdered": return json_(setCell_("発注依頼", p.id, 7, "発注済"));
+      case "photo": return json_(savePhoto_(payload));
+      case "photos": return json_({ ok: true, photos: listPhotos_(payload || {}) });
+      case "photoData": return json_(photoData_(p.id));
       default: return json_({ ok: false, error: "知らない action: " + p.action });
     }
   } catch (err) {
@@ -80,6 +88,11 @@ function sheet_(name, header) {
     sh.getRange(1, 1, 1, header.length).setValues([header])
       .setFontWeight("bold").setBackground("#0d7c66").setFontColor("#ffffff");
     sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < header.length) {
+    // 列を足した版にしたとき、足りない見出しを付ける
+    const from = sh.getLastColumn() + 1;
+    sh.getRange(1, from, 1, header.length - from + 1).setValues([header.slice(from - 1)])
+      .setFontWeight("bold").setBackground("#0d7c66").setFontColor("#ffffff");
   }
   return sh;
 }
@@ -128,7 +141,9 @@ function writeInventory_(store, after) {
 }
 
 // ---- 報告 -------------------------------------------------------------
-function repSheet_() { return sheet_("報告", ["ID", "作業日", "店舗", "本文", "補充前", "補充後", "送信日時", "取込済"]); }
+// 入力開始・送信はスマホが記録した実際の時刻。入店目安 = 入力開始 −10分、退店目安 = 送信 +10分
+function repSheet_() { return sheet_("報告", ["ID", "作業日", "店舗", "本文", "補充前", "補充後", "送信日時", "取込済", "入力開始", "送信", "入店目安", "退店目安"]); }
+const hhmm_ = (ms) => (ms ? Utilities.formatDate(new Date(ms), TZ, "HH:mm") : "");
 
 function saveReport_(p) {
   if (!p || !p.store || !p.workDay || !p.text) return { ok: false, error: "報告の中身が足りません" };
@@ -137,7 +152,9 @@ function saveReport_(p) {
   try {
     const sh = repSheet_();
     const id = p.workDay.replace(/\//g, "") + "-" + p.store;
-    const row = [id, p.workDay, p.store, p.text, JSON.stringify(p.before || {}), JSON.stringify(p.after || {}), now_(), false];
+    const started = Number(p.startedAt) || 0, sent = Number(p.sentAt) || 0;
+    const row = [id, p.workDay, p.store, p.text, JSON.stringify(p.before || {}), JSON.stringify(p.after || {}), now_(), false,
+      hhmm_(started), hhmm_(sent), hhmm_(started && started - 10 * 60e3), hhmm_(sent && sent + 10 * 60e3)];
     const found = rows_(sh).findIndex((r) => r[0] === id);
     if (found >= 0) sh.getRange(found + 2, 1, 1, row.length).setValues([row]); // 同じ日・同じ店舗は上書き（送り直し）
     else sh.appendRow(row);
@@ -152,8 +169,11 @@ function saveReport_(p) {
 function listReports_(all) {
   return rows_(repSheet_())
     .filter((r) => r[0] && (all || r[7] !== true))
-    .map((r) => ({ id: r[0], workDay: fmtDay_(r[1]), store: r[2], text: r[3], sentAt: String(r[6]), imported: r[7] === true }));
+    .map((r) => ({ id: r[0], workDay: fmtDay_(r[1]), store: r[2], text: r[3], sentAt: String(r[6]), imported: r[7] === true,
+      enter: fmtTime_(r[10]), leave: fmtTime_(r[11]) }));
 }
+// シートが時刻に変えてしまった値も「HH:mm」に戻す
+function fmtTime_(v) { return v instanceof Date ? Utilities.formatDate(v, TZ, "HH:mm") : String(v || ""); }
 // シートが日付に変えてしまった値も「yyyy/MM/dd」に戻す
 function fmtDay_(v) { return v instanceof Date ? Utilities.formatDate(v, TZ, "yyyy/MM/dd") : String(v); }
 
@@ -174,6 +194,54 @@ function listOrders_(all) {
   return rows_(ordSheet_())
     .filter((r) => r[0] && (all || r[6] !== "発注済"))
     .map((r) => ({ id: r[0], at: String(r[1]), store: r[2], name: r[3], qty: r[4], memo: r[5], state: r[6] }));
+}
+
+// ---- 写真（現場でスマホから上げる → 家で拡張機能が巡回報告に入れる） ------------
+// Google ドライブの「在庫報告_写真 / 作業日 / 店舗」に元のファイルのまま保存（撮影日時なども残る）
+const PHOTO_ROOT = "在庫報告_写真";
+
+// 最初に1回だけ実行: ドライブを使う許可を出し、写真のフォルダを作る
+function 写真フォルダを作る() {
+  Logger.log("写真フォルダ: " + folder_(DriveApp.getRootFolder(), PHOTO_ROOT).getUrl());
+}
+function folder_(parent, name) {
+  const it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : parent.createFolder(name);
+}
+function photoSheet_() { return sheet_("写真", ["キー", "作業日", "店舗", "枠", "ファイルID", "ファイル名", "アップ日時"]); }
+
+function savePhoto_(p) {
+  if (!p || !p.workDay || !p.store || !p.slot || !p.data) return { ok: false, error: "写真の中身が足りません" };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const dir = folder_(folder_(folder_(DriveApp.getRootFolder(), PHOTO_ROOT), p.workDay.replace(/\//g, "-")), p.store);
+    const blob = Utilities.newBlob(Utilities.base64Decode(p.data), p.mime || "image/jpeg", `${p.slot}_${p.name || "photo.jpg"}`);
+    const file = dir.createFile(blob);
+    const sh = photoSheet_();
+    const key = `${p.workDay}|${p.store}|${p.slot}`;
+    const row = [key, p.workDay, p.store, p.slot, file.getId(), file.getName(), now_()];
+    const i = rows_(sh).findIndex((r) => r[0] === key);
+    if (i >= 0) {
+      // 撮り直し: 前の写真はゴミ箱へ
+      try { DriveApp.getFileById(sh.getRange(i + 2, 5).getValue()).setTrashed(true); } catch (err) {}
+      sh.getRange(i + 2, 1, 1, row.length).setValues([row]);
+    } else sh.appendRow(row);
+    return { ok: true, id: file.getId() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function listPhotos_(p) {
+  return rows_(photoSheet_())
+    .filter((r) => r[0] && (!p.workDay || fmtDay_(r[1]) === p.workDay) && (!p.store || r[2] === p.store))
+    .map((r) => ({ workDay: fmtDay_(r[1]), store: r[2], slot: r[3], id: r[4], name: r[5] }));
+}
+
+function photoData_(id) {
+  const blob = DriveApp.getFileById(id).getBlob();
+  return { ok: true, name: blob.getName(), mime: blob.getContentType(), data: Utilities.base64Encode(blob.getBytes()) };
 }
 
 // ---- 共通: ID の行の列を書き換える ----------------------------------------
