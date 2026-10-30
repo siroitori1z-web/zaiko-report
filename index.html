@@ -24,6 +24,10 @@
     </section>
 
     <div id="net" class="net"></div>
+    <div id="photoPending" class="pending" hidden>
+        ⏳ 未送信の写真 <b id="photoPendingCount">0</b>枚（スマホの中に残っています）
+        <button type="button" id="sendNow" class="sub">今すぐ送る</button>
+    </div>
 
     <nav id="stores" class="stores"></nav>
 
@@ -36,6 +40,7 @@
         <p class="hint">送った依頼は、PC の拡張機能で MarketWatcher の資材発注に入力します（最後の発注ボタンは自分で押します）。</p>
     </section>
 
+    <script src="exif.js"></script>
     <script src="app.js"></script>
 </body>
 

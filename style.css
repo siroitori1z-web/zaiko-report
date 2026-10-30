@@ -118,6 +118,10 @@ input[type="text"] {
 .lowBanner[hidden] { display: none; }
 .row .name .lowTag { color: var(--ng); }
 
+.pending { margin: 6px 0; padding: 8px 10px; border-radius: 6px; background: #fff7ed; color: #b45309; font-weight: 700; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pending[hidden] { display: none; }
+.phoneSave { width: 100%; margin-top: 8px; }
+
 /* 写真6枚 */
 h3.ph { font-size: 15px; margin: 14px 0 6px; }
 .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }

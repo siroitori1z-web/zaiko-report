@@ -6,12 +6,12 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbyAfnCDD7fOHScKvK4PyAiF
 
 const STORES = [
     { name: "ドン・キホーテ松原店", items: ["マイプロココア", "マイプロレモン", "アルプロンチョコ", "アルプロンクッキー", "VALXチョコ", "VALXベリー", "グロングチョコ", "グロングヨーグルト", "ザバスココア", "ザバスストロベリー", "ザバスリッチショコラ", "ザバスバナナ", "ザバスキャラメル", "ザバスヨーグルト", "コップ小", "ウエットティッシュ"] },
-    { name: "ドン・キホーテりんくう店", items: ["VALXチョコ", "アルプロチョコ", "グロングチョコ", "VALXピーチ", "アルプロストロベリー", "ウルトラココナッツ", "マイプロココア", "マイプロ抹茶", "マイプロレモン", "コップ小", "ウエットティッシュ"] },
-    { name: "ドン・キホーテ箕面店", items: ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] },
-    { name: "ドン・キホーテ茨木店", items: ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー＆クリーム", "バルクスチョコ", "バルクスベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] },
-    { name: "ドン・キホーテ枚方店", items: ["マイプロココア", "マイプロレモン", "バルクスチョコ", "バルクスピーチ", "ザバスココア", "ザバスストロベリー", "ウルトラココナッツ", "ウルトラパイン", "コップ小", "ウエットティッシュ"] },
-    { name: "ドン・キホーテ京都伏見店", items: ["マイプロココア", "マイプロレモン", "アルプロンチョコ", "アルプロンイチゴ", "VALXチョコ", "VALXピーチ", "ホエイチョコ", "ホエイヨーグルト", "コップ小", "ウエットティッシュ"] },
-    { name: "ドン・キホーテ西大和店", items: ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー", "VALXチョコ", "VALXピーチ", "ウルトラココナッツ", "ウルトラクッキー", "コップ小", "ウエットティッシュ"] },
+    { name: "ドン・キホーテりんくう店", items: ["VALXチョコ", "アルプロチョコ", "グロングチョコ", "VALXピーチ", "アルプロストロベリー", "ウルトラ抹茶", "マイプロココア", "マイプロ抹茶", "マイプロレモン", "コップ小", "ウエットティッシュ"] },
+    { name: "ドン・キホーテ箕面店", items: ["マイプロココア", "マイプロレモン", "ハイブリッドチョコ", "ハイブリッドカフェオレ", "ザバスココア", "ザバスストロベリー", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] },
+    { name: "ドン・キホーテ茨木店", items: ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー＆クリーム", "ハイブリッドチョコ", "ハイブリッドカフェオレ", "グロングチョコ", "グロングヨーグルト", "コップ小", "ウエットティッシュ"] },
+    { name: "ドン・キホーテ枚方店", items: ["マイプロココア", "マイプロレモン", "ハイブリッドチョコ", "ハイブリッドカフェオレ", "ザバスココア", "ザバスストロベリー", "ザバスSOYバナナ", "ザバスBIOPROヨーグルト", "コップ小", "ウエットティッシュ"] },
+    { name: "ドン・キホーテ京都伏見店", items: ["マイプロココア", "マイプロレモン", "アルプロンチョコ", "アルプロンイチゴ", "ハイブリッドチョコ", "ハイブリッドカフェオレ", "ホエイチョコ", "ホエイヨーグルト", "コップ小", "ウエットティッシュ"] },
+    { name: "ドン・キホーテ西大和店", items: ["マイプロココア", "マイプロレモン", "アルプロチョコ", "アルプロクッキー", "VALXチョコ", "VALXピーチ", "ウルトラチョコ", "ウルトラ抹茶", "コップ小", "ウエットティッシュ"] },
 ];
 // 回る順。日〜水は火ルート、木〜土は金ルート
 const ROUTES = {
@@ -19,6 +19,21 @@ const ROUTES = {
     金: ["ドン・キホーテ松原店", "ドン・キホーテりんくう店", "ドン・キホーテ箕面店", "ドン・キホーテ京都伏見店", "ドン・キホーテ西大和店"],
 };
 const SUPPLIES = ["コップ小", "ウエットティッシュ"];
+// 名前を変えた商品（2026-10-31）。新しい名前の「前回」が無いときは、古い名前の値を使う
+const RENAMED = {
+    "ドン・キホーテ箕面店": { "ハイブリッドチョコ": "バルクスチョコ", "ハイブリッドカフェオレ": "バルクスピーチ" },
+    "ドン・キホーテ茨木店": { "ハイブリッドチョコ": "バルクスチョコ", "ハイブリッドカフェオレ": "バルクスベリー" },
+    "ドン・キホーテ枚方店": { "ハイブリッドチョコ": "バルクスチョコ", "ハイブリッドカフェオレ": "バルクスピーチ", "ザバスSOYバナナ": "ウルトラココナッツ", "ザバスBIOPROヨーグルト": "ウルトラパイン" },
+    "ドン・キホーテ京都伏見店": { "ハイブリッドチョコ": "VALXチョコ", "ハイブリッドカフェオレ": "VALXピーチ" },
+    "ドン・キホーテりんくう店": { "ウルトラ抹茶": "ウルトラココナッツ" },
+    "ドン・キホーテ西大和店": { "ウルトラチョコ": "ウルトラココナッツ", "ウルトラ抹茶": "ウルトラクッキー" },
+};
+function lastOf(name) {
+    const inv = inventory[name] || {}, out = { ...inv };
+    for (const [now, old] of Object.entries(RENAMED[name] || {})) if (out[now] == null && inv[old] != null) out[now] = inv[old];
+    return out;
+}
+
 // 補充後がこれより少ないと「少ない」と出す（数字は仮。店舗や商品で変えたいときはここを直す）
 const LOW = { "コップ小": 20, "ウエットティッシュ": 1, default: 1 };
 const WEEK = "日月火水木金土";
@@ -39,8 +54,8 @@ let current = store.get("current", "");
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, "0");
 const ymd = (d) => `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
-// 作業日: 夜中0〜4時は前の日の巡回
-const todayWork = () => new Date(Date.now() - 4 * 3600e3);
+// 作業日: 夜中0時台は前の日の巡回（西大和が日付をまたぐことがある）。1時からはその日
+const todayWork = () => new Date(Date.now() - 1 * 3600e3);
 const dayOf = (s) => { const [y, m, d] = s.split("/").map(Number); return new Date(y, m - 1, d); };
 const routeOf = (s) => (dayOf(s).getDay() <= 3 ? "火" : "金");
 const keyOf = (day, name) => `${day}|${name}`;
@@ -107,7 +122,7 @@ function draftOf(name) {
     const k = keyOf(workDay, name);
     // まだ触っていない店舗は、最新の在庫が届くたびに作り直す
     if (!drafts[k] || !drafts[k].touched) {
-        const last = inventory[name] || {};
+        const last = lastOf(name);
         const items = STORES.find((s) => s.name === name).items;
         // 補充前・補充後とも、前回の補充後から始める（変わった所だけ直せばよい）
         const v = Object.fromEntries(items.map((it) => [it, last[it] != null && last[it] !== "" ? String(last[it]) : ""]));
@@ -155,7 +170,7 @@ function renderForm() {
     const s = STORES.find((x) => x.name === current);
     if (!s) { main.innerHTML = `<p>上の店舗を選んでください。</p>`; return; }
     const dr = draftOf(s.name);
-    const last = inventory[s.name] || {};
+    const last = lastOf(s.name);
     const k = keyOf(workDay, s.name);
     main.innerHTML = `<h2>${s.name}${sent[k] ? `　<span class="hint">✓ ${sent[k]} 送信済み（直して送り直せます）</span>` : ""}</h2>
         <div id="lowBanner" class="lowBanner" hidden></div>
@@ -309,8 +324,19 @@ async function flushPhotos() {
     } finally {
         photoFlushing = false;
         render();
+        showPhotoPending();
     }
 }
+// 未送信の写真の数を上に出す（「今すぐ送る」で送り直し）
+async function showPhotoPending() {
+    try {
+        let n = 0;
+        for (const k of await photoKeys()) { const r = await photoGet(k); if (r && !r.sent) n++; }
+        $("photoPending").hidden = !n;
+        $("photoPendingCount").textContent = n;
+    } catch { }
+}
+$("sendNow").onclick = () => { flush(); flushPhotos(); };
 // 1週間より前の写真はスマホから消す（ドライブには残る）
 async function prunePhotos() {
     try {
@@ -319,9 +345,33 @@ async function prunePhotos() {
     } catch { }
 }
 
+// この店舗の写真を iPhone の「写真」にまとめて残す（共有の画面で「画像を保存」を押す）
+async function savePhotosToPhone(s) {
+    const files = [];
+    for (const slot of PHOTO_SLOTS) {
+        const rec = await photoGet(`${workDay}|${s.name}|${slot}`);
+        if (rec) files.push(new File([rec.blob], `${short(s.name)}_${slot}_${rec.name}`.replace(/[\\/:*?"<>|]/g, ""), { type: "image/jpeg" }));
+    }
+    if (!files.length) return say("まだ写真がありません", false);
+    if (navigator.canShare && navigator.canShare({ files })) {
+        try { await navigator.share({ files, title: `${short(s.name)} の写真` }); }
+        catch (e) { if (e.name !== "AbortError") say("保存できませんでした: " + e.message, false); }
+    } else {
+        // 共有できないブラウザ: 1枚ずつダウンロード
+        for (const f of files) {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(f);
+            a.download = f.name;
+            a.click();
+        }
+    }
+}
+
 function renderPhotoSlots(s, dr) {
     const box = document.createElement("div");
-    box.innerHTML = `<h3 class="ph">📷 写真（撮ったらその場で保存されます）</h3><div class="photos"></div>`;
+    box.innerHTML = `<h3 class="ph">📷 写真（撮ったらその場で保存されます）</h3><div class="photos"></div>
+        <button type="button" class="sub phoneSave">📥 この店舗の写真を iPhone の「写真」に保存</button>`;
+    box.querySelector(".phoneSave").onclick = () => savePhotosToPhone(s);
     const grid = box.querySelector(".photos");
     for (const slot of PHOTO_SLOTS) {
         const k = `${workDay}|${s.name}|${slot}`;
@@ -333,7 +383,9 @@ function renderPhotoSlots(s, dr) {
             const f = inp.files && inp.files[0];
             if (!f) return;
             if (!dr.startedAt) { dr.startedAt = Date.now(); dr.touched = true; saveDrafts(); }
-            await photoPut(k, { workDay, store: s.name, slot, blob: f, name: f.name || "photo.jpg", type: f.type || "image/jpeg", sent: false, at: Date.now() });
+            // カメラで撮った写真には撮影日時が入らないので、撮った時刻を書き込んでから残す（exif.js）
+            const blob = await stampTakenAt(f, new Date(f.lastModified || Date.now()));
+            await photoPut(k, { workDay, store: s.name, slot, blob, name: f.name || "photo.jpg", type: "image/jpeg", sent: false, at: Date.now() });
             render();
             flushPhotos();
         };
