@@ -22,9 +22,10 @@
  *   ?action=reports[&all=1]                 → 取込済でない報告 → { ok, reports: [{ id, workDay, store, text }] }
  *   ?action=markImported&id=ID              → 取込済にする
  *   ?action=order&payload={...}             → 発注依頼を追加 → { ok, id }
- *        payload = { store, items: [{ name, qty, memo }] }
+ *        payload = { store, rid, items: [{ name, qty, memo }] }（rid が同じ送り直しは足さない）
  *   ?action=orders[&all=1]                  → 未発注の依頼 → { ok, orders: [...] }
  *   ?action=markOrdered&id=ID               → 発注済にする
+ *   action=orderLeft id=ID payload={ left } → 上限まで発注した残りの数にする（状態は未発注のまま）
  *   action=photo  payload={ workDay, store, slot, name, mime, data(base64) } → ドライブに保存 → { ok, id }
  *   action=photos payload={ workDay, store } → [{ slot, id, name }]
  *   action=photoData id=ファイルID          → { ok, name, mime, data(base64) }
@@ -66,6 +67,7 @@ function doGet(e) {
       case "order": return json_(saveOrder_(payload));
       case "orders": return json_({ ok: true, orders: listOrders_(p.all === "1") });
       case "markOrdered": return json_(setCell_("発注依頼", p.id, 7, "発注済"));
+      case "orderLeft": return json_(setCell_("発注依頼", p.id, 5, Number(payload && payload.left)));
       case "photo": return json_(savePhoto_(payload));
       case "photos": return json_({ ok: true, photos: listPhotos_(payload || {}) });
       case "photoData": return json_(photoData_(p.id));
@@ -182,12 +184,21 @@ function ordSheet_() { return sheet_("発注依頼", ["ID", "依頼日時", "店
 
 function saveOrder_(p) {
   if (!p || !p.items || !p.items.length) return { ok: false, error: "発注する品目がありません" };
-  const sh = ordSheet_();
-  const stamp = now_();
-  const base = Utilities.formatDate(new Date(), TZ, "yyyyMMddHHmmss");
-  const rows = p.items.map((it, i) => [base + "-" + (i + 1), stamp, p.store || "", it.name, it.qty, it.memo || "", "未発注"]);
-  sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
-  return { ok: true, id: base, count: rows.length };
+  // 同じ秒に2店舗分が届いても番号がかぶらないように、1件ずつ順番に書く
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = ordSheet_();
+    // rid = 現場アプリが付けた送信番号。送り直し（返事だけ届かなかったなど）で同じ番号が来たら、足さない
+    const base = p.rid ? String(p.rid) : Utilities.formatDate(new Date(), TZ, "yyyyMMddHHmmss") + "-" + Utilities.getUuid().slice(0, 4);
+    if (p.rid && rows_(sh).some((r) => String(r[0]).indexOf(base + "-") === 0)) return { ok: true, id: base, count: 0, already: true };
+    const stamp = now_();
+    const rows = p.items.map((it, i) => [base + "-" + (i + 1), stamp, p.store || "", it.name, it.qty, it.memo || "", "未発注"]);
+    sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+    return { ok: true, id: base, count: rows.length };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function listOrders_(all) {

@@ -404,6 +404,12 @@ function renderPhotoSlots(s, dr) {
 }
 
 // ---- 発注したい物 ---------------------------------------------------------------
+// 送信番号: 日時 + ランダム4文字（シートの依頼番号の頭になる）
+const newRid = () => {
+    const d = new Date(), z = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}-${Math.random().toString(36).slice(2, 6)}`;
+};
+
 function toggleCart(storeName, name) {
     const i = cart.findIndex((c) => c.store === storeName && c.name === name);
     if (i >= 0) cart.splice(i, 1);
@@ -432,14 +438,26 @@ $("sendOrder").onclick = async () => {
     const btn = $("sendOrder");
     btn.disabled = true;
     try {
-        const byStore = {};
-        cart.forEach((c) => (byStore[c.store] = byStore[c.store] || []).push({ name: c.name, qty: norm(c.qty) }));
-        for (const [st, items] of Object.entries(byStore)) await api("order", { store: st, items });
-        alert(`発注依頼を ${cart.length}件 送りました。PC の拡張機能で資材発注に入力してください。`);
-        cart = [];
+        // 店舗ごとに送信番号（rid）を付けて残しておく。途中で失敗して送り直しても、
+        // 届いていた分はシートで足されない（同じ依頼が2つできない）
+        const ridOf = {};
+        for (const c of cart) {
+            if (!c.rid) c.rid = ridOf[c.store] = ridOf[c.store] || newRid();
+        }
         store.set("cart", cart);
+        const groups = {};
+        cart.forEach((c) => (groups[c.store + "\t" + c.rid] = groups[c.store + "\t" + c.rid] || []).push(c));
+        let sent = 0;
+        for (const items of Object.values(groups)) {
+            await api("order", { store: items[0].store, rid: items[0].rid, items: items.map((c) => ({ name: c.name, qty: norm(c.qty) })) });
+            // 届いた店舗の分は、ここで一覧から外す（あとで失敗しても送り直さない）
+            cart = cart.filter((c) => !items.includes(c));
+            store.set("cart", cart);
+            sent += items.length;
+        }
+        alert(`発注依頼を ${sent}件 送りました。PC の拡張機能で資材発注に入力してください。`);
     } catch (e) {
-        alert("発注依頼を送れませんでした: " + e.message + "\n（一覧はそのまま残っています）");
+        alert("発注依頼を送れませんでした: " + e.message + "\n（送れなかった分は一覧に残っています。もう一度押してください）");
     } finally {
         btn.disabled = false;
         render();
